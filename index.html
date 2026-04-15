@@ -1,0 +1,1575 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Monitoring Suhu Ruangan Radiologi</title>
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Exo+2:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <!-- Firebase CDN -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getDatabase, ref, push, set, get, query, orderByChild, startAt, endAt } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAOAcEymMrL96dE-3ZCmDoiaoL8QARCXLA",
+      authDomain: "monitoring-suhu-radiologi.firebaseapp.com",
+      databaseURL: "https://monitoring-suhu-radiologi-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "monitoring-suhu-radiologi",
+      storageBucket: "monitoring-suhu-radiologi.firebasestorage.app",
+      messagingSenderId: "512050657465",
+      appId: "1:512050657465:web:2685febcbebca99d024368",
+      measurementId: "G-LS2HCLJJ3K"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    window._firebaseDB = db;
+    window._firebaseRef = ref;
+    window._firebasePush = push;
+    window._firebaseSet = set;
+    window._firebaseGet = get;
+    window._firebaseQuery = query;
+    window._firebaseOrderByChild = orderByChild;
+    window._firebaseStartAt = startAt;
+    window._firebaseEndAt = endAt;
+    window._firebaseReady = true;
+    document.dispatchEvent(new Event('firebaseReady'));
+  </script>
+
+  <style>
+    :root {
+      --bg-dark: #040d18;
+      --bg-panel: #071525;
+      --bg-card: #0a1e35;
+      --accent-cyan: #00e5ff;
+      --accent-blue: #0077ff;
+      --accent-green: #00ff88;
+      --accent-warn: #ffb300;
+      --accent-danger: #ff4444;
+      --text-primary: #e0f4ff;
+      --text-secondary: #7aadc8;
+      --text-muted: #3d6278;
+      --border-glow: rgba(0,229,255,0.2);
+      --border-dim: rgba(0,119,255,0.12);
+      --glow-cyan: 0 0 20px rgba(0,229,255,0.3);
+      --glow-green: 0 0 20px rgba(0,255,136,0.3);
+      --glow-warn: 0 0 20px rgba(255,179,0,0.3);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Exo 2', sans-serif;
+      background: var(--bg-dark);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Animated grid background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,119,255,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,119,255,0.04) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Scanline effect */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.03) 2px,
+        rgba(0,0,0,0.03) 4px
+      );
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ===== HEADER ===== */
+    header {
+      position: relative;
+      z-index: 10;
+      background: linear-gradient(180deg, rgba(0,119,255,0.12) 0%, transparent 100%);
+      border-bottom: 1px solid var(--border-glow);
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .logo-icon {
+      width: 52px;
+      height: 52px;
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      box-shadow: var(--glow-cyan);
+      flex-shrink: 0;
+    }
+
+    .header-title h1 {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: clamp(16px, 2.5vw, 24px);
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: var(--accent-cyan);
+      text-shadow: 0 0 20px rgba(0,229,255,0.5);
+      text-transform: uppercase;
+    }
+
+    .header-title p {
+      font-size: 11px;
+      color: var(--text-secondary);
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .live-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(0,255,136,0.1);
+      border: 1px solid rgba(0,255,136,0.3);
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent-green);
+      letter-spacing: 2px;
+    }
+
+    .live-dot {
+      width: 7px;
+      height: 7px;
+      background: var(--accent-green);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--accent-green);
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.8); }
+    }
+
+    .clock {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 16px;
+      color: var(--accent-cyan);
+      letter-spacing: 2px;
+    }
+
+    /* ===== NAV TABS ===== */
+    nav {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      gap: 4px;
+      padding: 12px 32px 0;
+      border-bottom: 1px solid var(--border-dim);
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    nav::-webkit-scrollbar { display: none; }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      padding: 10px 20px;
+      color: var(--text-muted);
+      font-family: 'Exo 2', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: all 0.3s;
+      white-space: nowrap;
+      border-radius: 8px 8px 0 0;
+    }
+
+    .tab-btn:hover { color: var(--text-secondary); background: rgba(0,119,255,0.05); }
+
+    .tab-btn.active {
+      color: var(--accent-cyan);
+      border-bottom-color: var(--accent-cyan);
+      background: rgba(0,229,255,0.05);
+      text-shadow: 0 0 10px rgba(0,229,255,0.4);
+    }
+
+    /* ===== MAIN CONTENT ===== */
+    main {
+      position: relative;
+      z-index: 5;
+      padding: 24px 32px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; animation: fadeIn 0.4s ease; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ===== CARDS ===== */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-dim);
+      border-radius: 16px;
+      padding: 24px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent);
+      opacity: 0.5;
+    }
+
+    .card-title {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-title span { color: var(--accent-cyan); font-size: 16px; }
+
+    /* ===== FORM GRID ===== */
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .form-group label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+    }
+
+    .form-control {
+      background: rgba(0,119,255,0.06);
+      border: 1px solid var(--border-dim);
+      border-radius: 10px;
+      padding: 12px 16px;
+      color: var(--text-primary);
+      font-family: 'Exo 2', sans-serif;
+      font-size: 14px;
+      outline: none;
+      transition: all 0.3s;
+      width: 100%;
+    }
+
+    .form-control:focus {
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 0 3px rgba(0,229,255,0.1);
+      background: rgba(0,229,255,0.05);
+    }
+
+    .form-control option { background: #0a1e35; }
+
+    /* Suhu & Kelembaban inputs */
+    .reading-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .reading-card {
+      background: rgba(0,119,255,0.06);
+      border: 1px solid var(--border-dim);
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+      transition: all 0.3s;
+    }
+
+    .reading-card:hover { border-color: var(--accent-cyan); }
+
+    .reading-card .rc-label {
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    .reading-card .rc-val {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--accent-cyan);
+    }
+
+    .reading-card .rc-unit { font-size: 14px; color: var(--text-secondary); }
+
+    .reading-card input[type="number"] {
+      background: transparent;
+      border: none;
+      outline: none;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--accent-cyan);
+      text-align: center;
+      width: 100%;
+    }
+
+    .reading-card input[type="number"]::-webkit-inner-spin-button { opacity: 0; }
+
+    /* Status badge */
+    .status-ok { color: var(--accent-green); }
+    .status-warn { color: var(--accent-warn); }
+    .status-danger { color: var(--accent-danger); }
+
+    /* ===== SIGNATURE PAD ===== */
+    .sig-container {
+      background: rgba(255,255,255,0.03);
+      border: 1px dashed var(--border-glow);
+      border-radius: 12px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #sigCanvas {
+      display: block;
+      width: 100%;
+      height: 140px;
+      cursor: crosshair;
+      touch-action: none;
+    }
+
+    .sig-label {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 12px;
+      color: var(--text-muted);
+      pointer-events: none;
+      letter-spacing: 2px;
+      text-align: center;
+      transition: opacity 0.3s;
+    }
+
+    .sig-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+      justify-content: flex-end;
+    }
+
+    /* ===== BUTTONS ===== */
+    .btn {
+      padding: 11px 24px;
+      border: none;
+      border-radius: 10px;
+      font-family: 'Exo 2', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+      color: #000;
+      box-shadow: 0 4px 20px rgba(0,119,255,0.4);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(0,229,255,0.5);
+    }
+
+    .btn-success {
+      background: linear-gradient(135deg, #00aa55, var(--accent-green));
+      color: #000;
+      box-shadow: 0 4px 20px rgba(0,255,136,0.3);
+    }
+
+    .btn-success:hover { transform: translateY(-2px); }
+
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border-glow);
+      color: var(--text-secondary);
+    }
+
+    .btn-outline:hover { border-color: var(--accent-cyan); color: var(--accent-cyan); }
+
+    .btn-danger {
+      background: transparent;
+      border: 1px solid rgba(255,68,68,0.3);
+      color: var(--accent-danger);
+      font-size: 11px;
+      padding: 6px 14px;
+    }
+
+    /* ===== DASHBOARD STATS ===== */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .stat-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border-dim);
+      border-radius: 14px;
+      padding: 18px;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.3s;
+    }
+
+    .stat-box:hover { border-color: var(--accent-cyan); transform: translateY(-2px); }
+
+    .stat-box .stat-icon {
+      font-size: 24px;
+      margin-bottom: 10px;
+    }
+
+    .stat-box .stat-val {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--accent-cyan);
+      line-height: 1;
+    }
+
+    .stat-box .stat-lbl {
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    .stat-box .stat-sub {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    /* ===== TABLE ===== */
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 12px;
+      border: 1px solid var(--border-dim);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 700px;
+    }
+
+    thead tr {
+      background: rgba(0,119,255,0.1);
+    }
+
+    th {
+      padding: 12px 16px;
+      text-align: left;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      border-bottom: 1px solid var(--border-dim);
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 11px 16px;
+      font-size: 13px;
+      border-bottom: 1px solid rgba(0,119,255,0.05);
+      color: var(--text-primary);
+    }
+
+    tbody tr:hover { background: rgba(0,229,255,0.03); }
+    tbody tr:last-child td { border-bottom: none; }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .badge-ok { background: rgba(0,255,136,0.1); color: var(--accent-green); border: 1px solid rgba(0,255,136,0.2); }
+    .badge-warn { background: rgba(255,179,0,0.1); color: var(--accent-warn); border: 1px solid rgba(255,179,0,0.2); }
+    .badge-danger { background: rgba(255,68,68,0.1); color: var(--accent-danger); border: 1px solid rgba(255,68,68,0.2); }
+
+    /* ===== CHART ===== */
+    .chart-wrap {
+      position: relative;
+      height: 260px;
+    }
+
+    /* ===== ROOM GAUGES ===== */
+    .gauges-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .gauge-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-dim);
+      border-radius: 14px;
+      padding: 16px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.3s;
+    }
+
+    .gauge-card:hover { border-color: var(--accent-cyan); }
+
+    .gauge-card .room-name {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      margin-bottom: 12px;
+    }
+
+    .gauge-num {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 36px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .gauge-unit { font-size: 14px; color: var(--text-muted); }
+    .gauge-hum { font-size: 18px; font-family: 'Share Tech Mono', monospace; color: var(--text-secondary); margin-top: 4px; }
+
+    .gauge-status {
+      margin-top: 8px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+
+    /* ===== REKAP CONTROLS ===== */
+    .rekap-controls {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      margin-bottom: 24px;
+    }
+
+    /* ===== INFO BOX ===== */
+    .info-box {
+      background: rgba(0,119,255,0.06);
+      border: 1px solid rgba(0,119,255,0.15);
+      border-radius: 12px;
+      padding: 16px 20px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.7;
+    }
+
+    .info-box strong { color: var(--accent-cyan); }
+
+    /* ===== TOAST ===== */
+    #toast {
+      position: fixed;
+      bottom: 32px;
+      right: 32px;
+      z-index: 1000;
+      display: none;
+      padding: 14px 24px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      animation: slideUp 0.4s ease;
+      max-width: 380px;
+    }
+
+    #toast.success {
+      background: rgba(0,40,20,0.95);
+      border: 1px solid var(--accent-green);
+      color: var(--accent-green);
+      box-shadow: var(--glow-green);
+    }
+
+    #toast.error {
+      background: rgba(40,0,0,0.95);
+      border: 1px solid var(--accent-danger);
+      color: var(--accent-danger);
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ===== LOADING OVERLAY ===== */
+    #loadingOverlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(4,13,24,0.85);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      backdrop-filter: blur(4px);
+    }
+
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border: 3px solid var(--border-dim);
+      border-top-color: var(--accent-cyan);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-text {
+      margin-top: 16px;
+      font-size: 12px;
+      letter-spacing: 3px;
+      color: var(--text-secondary);
+      text-align: center;
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 768px) {
+      header { padding: 12px 16px; }
+      nav { padding: 8px 16px 0; }
+      main { padding: 16px; }
+      .stats-row { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 480px) {
+      .header-title h1 { font-size: 14px; }
+      .stats-row { grid-template-columns: 1fr 1fr; }
+    }
+
+    /* NO DATA */
+    .no-data {
+      text-align: center;
+      padding: 48px;
+      color: var(--text-muted);
+      font-size: 14px;
+      letter-spacing: 1px;
+    }
+
+    .no-data .nd-icon { font-size: 40px; margin-bottom: 12px; }
+
+    /* sig img */
+    .sig-thumb { max-height: 40px; }
+
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loadingOverlay">
+  <div style="text-align:center">
+    <div class="spinner"></div>
+    <div class="loading-text">MENGHUBUNGKAN FIREBASE...</div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- HEADER -->
+<header>
+  <div class="header-left">
+    <div class="logo-icon">🌡️</div>
+    <div class="header-title">
+      <h1>Monitoring Suhu Radiologi</h1>
+      <p>Instalasi Radiologi — Sistem Pemantauan Lingkungan</p>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+    <div class="clock" id="clock">--:--:--</div>
+  </div>
+</header>
+
+<!-- NAV -->
+<nav>
+  <button class="tab-btn active" onclick="switchTab('dashboard')">📊 Dashboard</button>
+  <button class="tab-btn" onclick="switchTab('input')">✏️ Input Data</button>
+  <button class="tab-btn" onclick="switchTab('rekap-harian')">📅 Rekap Harian</button>
+  <button class="tab-btn" onclick="switchTab('rekap-bulanan')">📆 Rekap Bulanan</button>
+  <button class="tab-btn" onclick="switchTab('rekap-triwulan')">🗓️ Rekap Triwulan</button>
+  <button class="tab-btn" onclick="switchTab('rekap-tahunan')">📋 Rekap Tahunan</button>
+</nav>
+
+<main>
+
+  <!-- ======================== DASHBOARD ======================== -->
+  <div id="tab-dashboard" class="tab-content active">
+    <div class="stats-row" id="statsRow">
+      <div class="stat-box"><div class="stat-icon">📝</div><div class="stat-val" id="st-total">–</div><div class="stat-lbl">Total Data</div></div>
+      <div class="stat-box"><div class="stat-icon">🌡️</div><div class="stat-val" id="st-suhu">–</div><div class="stat-lbl">Suhu Rata2 Hari Ini</div><div class="stat-sub">°C</div></div>
+      <div class="stat-box"><div class="stat-icon">💧</div><div class="stat-val" id="st-hum">–</div><div class="stat-lbl">Kelembaban Rata2</div><div class="stat-sub">% RH</div></div>
+      <div class="stat-box"><div class="stat-icon">✅</div><div class="stat-val" id="st-ok">–</div><div class="stat-lbl">Status Normal</div></div>
+      <div class="stat-box"><div class="stat-icon">⚠️</div><div class="stat-val" id="st-warn">–</div><div class="stat-lbl">Perlu Perhatian</div></div>
+    </div>
+
+    <div class="two-col" style="margin-bottom:24px">
+      <div class="card">
+        <div class="card-title"><span>🏥</span> Kondisi Ruangan Saat Ini</div>
+        <div class="gauges-grid" id="gaugesGrid">
+          <div class="no-data"><div class="nd-icon">📭</div>Belum ada data hari ini</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span>📈</span> Tren 7 Hari Terakhir</div>
+        <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span>🕓</span> Data Terbaru</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Tanggal</th><th>Ruangan</th><th>Suhu (°C)</th><th>Kelembaban (%)</th><th>Petugas</th><th>Status Suhu</th><th>Status RH</th>
+            </tr>
+          </thead>
+          <tbody id="latestTbody">
+            <tr><td colspan="7" class="no-data">Memuat data...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================== INPUT DATA ======================== -->
+  <div id="tab-input" class="tab-content">
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-title"><span>📋</span> Form Pengisian Data Suhu</div>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Tanggal Pengisian</label>
+          <input type="date" class="form-control" id="inpTanggal"/>
+        </div>
+        <div class="form-group">
+          <label>Waktu Pengisian</label>
+          <input type="time" class="form-control" id="inpWaktu"/>
+        </div>
+        <div class="form-group">
+          <label>Pilih Ruangan</label>
+          <select class="form-control" id="inpRuangan">
+            <option value="">-- Pilih Ruangan --</option>
+            <option>ADM RADIOLOGI</option>
+            <option>RUANG USG</option>
+            <option>RUANG MRI</option>
+            <option>RUANG RONTGEN 1</option>
+            <option>RUANG RONTGEN 2</option>
+            <option>RUANG CT SCAN</option>
+            <option>RUANG PANORAMIC</option>
+            <option>RUANG RONTGEN MCU</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Petugas Pengisian</label>
+          <select class="form-control" id="inpPetugas">
+            <option value="">-- Pilih Petugas --</option>
+            <option>Ino Hadiwinata, A.Md.Rad</option>
+            <option>Lalan Permana Herlambang, A.Md.Rad</option>
+            <option>Feby Fardianto, A.Md.Rad</option>
+            <option>Elis Mandalasari, A.Md.Rad</option>
+            <option>Argo Nur Pujianto</option>
+            <option>Tikha Kania, A.Md.Rad</option>
+            <option>Ipu Yoga Pradetza, A.Md.Rad</option>
+            <option>Sri Cahyati, A.Md.Rad</option>
+            <option>Opan Sopandi, A.Md.Rad</option>
+            <option>Mohamad Vinggih Hernanda, A.Md.Rad</option>
+            <option>Fahmi Puja Ashri, A.Md.Rad</option>
+            <option>Gilang Nurgianti Fadilah, A.Md.Rad</option>
+            <option>Ardi Pratama Oktafiansyah, A.Md.Rad</option>
+            <option>Zhafira Nur Hasanah, A.Md.Rad</option>
+            <option>Dwi Alfi Pramesti, A.Md.Rad</option>
+            <option>Rita Riana, A.Md.Rad</option>
+            <option>Muhammad Rizky Maulana, A.Md.Kes</option>
+            <option>Muhammad Rafi Azhar, A.Md.Kes</option>
+            <option>Dias Riyandi, A.Md.Kes</option>
+            <option>Mochamad Taufik H, A.Md.Kes</option>
+            <option>Arief Maulana, A.Md.Kes</option>
+            <option>Salsa Dea Charira, A.Md.Kes</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="reading-grid">
+        <div class="reading-card">
+          <div class="rc-label">🌡️ Suhu Ruangan</div>
+          <div>
+            <input type="number" id="inpSuhu" step="0.1" min="10" max="40" placeholder="22" oninput="updateStatus()"/>
+            <span class="rc-unit">°C</span>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:6px">Range: 20–24°C | Ideal: 21–22°C</div>
+          <div id="suhuStatus" style="margin-top:8px;font-size:12px;font-weight:700;letter-spacing:1px"></div>
+        </div>
+        <div class="reading-card">
+          <div class="rc-label">💧 Kelembaban (RH)</div>
+          <div>
+            <input type="number" id="inpHumidity" step="1" min="0" max="100" placeholder="50" oninput="updateStatus()"/>
+            <span class="rc-unit">%</span>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:6px">Range: 40–60% | Ideal: 45–55%</div>
+          <div id="humStatus" style="margin-top:8px;font-size:12px;font-weight:700;letter-spacing:1px"></div>
+        </div>
+        <div class="reading-card">
+          <div class="rc-label">📝 Catatan (Opsional)</div>
+          <textarea class="form-control" id="inpCatatan" style="height:90px;resize:none;margin-top:4px" placeholder="Masukkan catatan jika ada..."></textarea>
+        </div>
+      </div>
+
+      <!-- Signature -->
+      <div class="form-group" style="margin-bottom:20px">
+        <label>Tanda Tangan Petugas</label>
+        <div class="sig-container">
+          <canvas id="sigCanvas" width="800" height="140"></canvas>
+          <div class="sig-label" id="sigLabel">✍️ Tanda tangan di sini</div>
+        </div>
+        <div class="sig-actions">
+          <button class="btn btn-danger" onclick="clearSig()">Hapus Tanda Tangan</button>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="submitData()">💾 Simpan Data</button>
+        <button class="btn btn-outline" onclick="resetForm()">↺ Reset Form</button>
+      </div>
+    </div>
+
+    <!-- Info -->
+    <div class="info-box">
+      <strong>📌 Standar Ruangan Radiologi:</strong><br/>
+      🌡️ <strong>Suhu:</strong> 20–24°C &nbsp;|&nbsp; Ideal: 21–22°C &nbsp;|&nbsp; Tujuan: Menjaga stabilitas alat, kenyamanan, mencegah overheat<br/>
+      💧 <strong>Kelembaban:</strong> 40–60% RH &nbsp;|&nbsp; Ideal: 45–55% &nbsp;|&nbsp; Tujuan: Mencegah kondensasi, menghindari listrik statis, menjaga umur alat
+    </div>
+  </div>
+
+  <!-- ======================== REKAP HARIAN ======================== -->
+  <div id="tab-rekap-harian" class="tab-content">
+    <div class="card">
+      <div class="card-title"><span>📅</span> Rekap Data Harian</div>
+      <div class="rekap-controls">
+        <div class="form-group">
+          <label>Pilih Tanggal</label>
+          <input type="date" class="form-control" id="filterHarian" style="width:200px"/>
+        </div>
+        <button class="btn btn-primary" onclick="loadHarian()">🔍 Tampilkan</button>
+        <button class="btn btn-success" onclick="exportExcel('harian')">📥 Export Excel</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>No</th><th>Waktu</th><th>Ruangan</th><th>Suhu (°C)</th><th>Kelembaban (%)</th><th>Status Suhu</th><th>Status RH</th><th>Petugas</th><th>Catatan</th><th>TTD</th></tr>
+          </thead>
+          <tbody id="rekapHarianBody">
+            <tr><td colspan="10" class="no-data">Pilih tanggal untuk melihat data</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================== REKAP BULANAN ======================== -->
+  <div id="tab-rekap-bulanan" class="tab-content">
+    <div class="card">
+      <div class="card-title"><span>📆</span> Rekap Data Bulanan</div>
+      <div class="rekap-controls">
+        <div class="form-group">
+          <label>Bulan</label>
+          <select class="form-control" id="filterBulan" style="width:160px">
+            <option value="01">Januari</option><option value="02">Februari</option>
+            <option value="03">Maret</option><option value="04">April</option>
+            <option value="05">Mei</option><option value="06">Juni</option>
+            <option value="07">Juli</option><option value="08">Agustus</option>
+            <option value="09">September</option><option value="10">Oktober</option>
+            <option value="11">November</option><option value="12">Desember</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Tahun</label>
+          <input type="number" class="form-control" id="filterTahunBulan" style="width:120px" min="2020" max="2099"/>
+        </div>
+        <button class="btn btn-primary" onclick="loadBulanan()">🔍 Tampilkan</button>
+        <button class="btn btn-success" onclick="exportExcel('bulanan')">📥 Export Excel</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>No</th><th>Tanggal</th><th>Waktu</th><th>Ruangan</th><th>Suhu (°C)</th><th>Kelembaban (%)</th><th>Status</th><th>Petugas</th></tr>
+          </thead>
+          <tbody id="rekapBulananBody">
+            <tr><td colspan="8" class="no-data">Pilih bulan untuk melihat data</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================== REKAP TRIWULAN ======================== -->
+  <div id="tab-rekap-triwulan" class="tab-content">
+    <div class="card">
+      <div class="card-title"><span>🗓️</span> Rekap Data Triwulan</div>
+      <div class="rekap-controls">
+        <div class="form-group">
+          <label>Triwulan</label>
+          <select class="form-control" id="filterTriwulan" style="width:200px">
+            <option value="1">TW I (Jan–Mar)</option>
+            <option value="2">TW II (Apr–Jun)</option>
+            <option value="3">TW III (Jul–Sep)</option>
+            <option value="4">TW IV (Okt–Des)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Tahun</label>
+          <input type="number" class="form-control" id="filterTahunTW" style="width:120px" min="2020" max="2099"/>
+        </div>
+        <button class="btn btn-primary" onclick="loadTriwulan()">🔍 Tampilkan</button>
+        <button class="btn btn-success" onclick="exportExcel('triwulan')">📥 Export Excel</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>No</th><th>Tanggal</th><th>Ruangan</th><th>Suhu (°C)</th><th>Kelembaban (%)</th><th>Status</th><th>Petugas</th></tr>
+          </thead>
+          <tbody id="rekapTriwulanBody">
+            <tr><td colspan="7" class="no-data">Pilih triwulan untuk melihat data</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================== REKAP TAHUNAN ======================== -->
+  <div id="tab-rekap-tahunan" class="tab-content">
+    <div class="card">
+      <div class="card-title"><span>📋</span> Rekap Data Tahunan</div>
+      <div class="rekap-controls">
+        <div class="form-group">
+          <label>Tahun</label>
+          <input type="number" class="form-control" id="filterTahun" style="width:120px" min="2020" max="2099"/>
+        </div>
+        <button class="btn btn-primary" onclick="loadTahunan()">🔍 Tampilkan</button>
+        <button class="btn btn-success" onclick="exportExcel('tahunan')">📥 Export Excel</button>
+      </div>
+      <!-- Summary per room -->
+      <div id="tahunanSummary" style="margin-bottom:20px"></div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>No</th><th>Bulan</th><th>Ruangan</th><th>Rata2 Suhu</th><th>Rata2 Hum</th><th>Jml Data</th><th>Normal</th><th>Tidak Normal</th></tr>
+          </thead>
+          <tbody id="rekapTahunanBody">
+            <tr><td colspan="8" class="no-data">Pilih tahun untuk melihat data</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ===================== GLOBAL STATE =====================
+let allData = [];
+let trendChartInstance = null;
+let sigPainting = false;
+let hasSig = false;
+const sigCtx = document.getElementById('sigCanvas').getContext('2d');
+const ROOMS = ['ADM RADIOLOGI','RUANG USG','RUANG MRI','RUANG RONTGEN 1','RUANG RONTGEN 2','RUANG CT SCAN','RUANG PANORAMIC','RUANG RONTGEN MCU'];
+
+// ===================== INIT =====================
+document.addEventListener('firebaseReady', async () => {
+  document.getElementById('loadingOverlay').style.display = 'none';
+  initClock();
+  initSig();
+  setDefaults();
+  await loadAllData();
+  refreshDashboard();
+});
+
+// Fallback jika firebase gagal
+setTimeout(() => {
+  document.getElementById('loadingOverlay').style.display = 'none';
+}, 5000);
+
+function setDefaults() {
+  const now = new Date();
+  document.getElementById('inpTanggal').value = now.toISOString().split('T')[0];
+  document.getElementById('inpWaktu').value = now.toTimeString().slice(0,5);
+  document.getElementById('filterHarian').value = now.toISOString().split('T')[0];
+  document.getElementById('filterBulan').value = String(now.getMonth()+1).padStart(2,'0');
+  document.getElementById('filterTahunBulan').value = now.getFullYear();
+  document.getElementById('filterTahunTW').value = now.getFullYear();
+  document.getElementById('filterTahun').value = now.getFullYear();
+  // Set triwulan berdasarkan bulan sekarang
+  const tw = Math.ceil((now.getMonth()+1)/3);
+  document.getElementById('filterTriwulan').value = tw;
+}
+
+// ===================== CLOCK =====================
+function initClock() {
+  function tick() {
+    const now = new Date();
+    document.getElementById('clock').textContent =
+      now.toLocaleTimeString('id-ID',{hour12:false});
+  }
+  tick(); setInterval(tick, 1000);
+}
+
+// ===================== TABS =====================
+function switchTab(id) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ===================== SIGNATURE =====================
+function initSig() {
+  const canvas = document.getElementById('sigCanvas');
+  const label = document.getElementById('sigLabel');
+
+  function getPos(e) {
+    const r = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / r.width;
+    const scaleY = canvas.height / r.height;
+    if (e.touches) {
+      return { x:(e.touches[0].clientX-r.left)*scaleX, y:(e.touches[0].clientY-r.top)*scaleY };
+    }
+    return { x:(e.clientX-r.left)*scaleX, y:(e.clientY-r.top)*scaleY };
+  }
+
+  function start(e) {
+    e.preventDefault();
+    sigPainting = true;
+    const p = getPos(e);
+    sigCtx.beginPath();
+    sigCtx.moveTo(p.x, p.y);
+    label.style.opacity = '0';
+    hasSig = true;
+  }
+
+  function draw(e) {
+    e.preventDefault();
+    if (!sigPainting) return;
+    const p = getPos(e);
+    sigCtx.lineWidth = 2.5;
+    sigCtx.lineCap = 'round';
+    sigCtx.strokeStyle = '#00e5ff';
+    sigCtx.lineTo(p.x, p.y);
+    sigCtx.stroke();
+    sigCtx.beginPath();
+    sigCtx.moveTo(p.x, p.y);
+  }
+
+  function stop() { sigPainting = false; sigCtx.beginPath(); }
+
+  canvas.addEventListener('mousedown', start);
+  canvas.addEventListener('mousemove', draw);
+  canvas.addEventListener('mouseup', stop);
+  canvas.addEventListener('mouseleave', stop);
+  canvas.addEventListener('touchstart', start, {passive:false});
+  canvas.addEventListener('touchmove', draw, {passive:false});
+  canvas.addEventListener('touchend', stop);
+}
+
+function clearSig() {
+  const canvas = document.getElementById('sigCanvas');
+  sigCtx.clearRect(0, 0, canvas.width, canvas.height);
+  document.getElementById('sigLabel').style.opacity = '1';
+  hasSig = false;
+}
+
+// ===================== STATUS CHECK =====================
+function getSuhuStatus(v) {
+  if (v >= 21 && v <= 22) return {label:'IDEAL ✓', cls:'badge-ok', color:'status-ok'};
+  if (v >= 20 && v <= 24) return {label:'NORMAL ✓', cls:'badge-ok', color:'status-ok'};
+  if (v < 20) return {label:'TERLALU DINGIN ⚠', cls:'badge-warn', color:'status-warn'};
+  return {label:'TERLALU PANAS ⚠', cls:'badge-danger', color:'status-danger'};
+}
+
+function getHumStatus(v) {
+  if (v >= 45 && v <= 55) return {label:'IDEAL ✓', cls:'badge-ok', color:'status-ok'};
+  if (v >= 40 && v <= 60) return {label:'NORMAL ✓', cls:'badge-ok', color:'status-ok'};
+  if (v < 40) return {label:'TERLALU KERING ⚠', cls:'badge-warn', color:'status-warn'};
+  return {label:'TERLALU LEMBAB ⚠', cls:'badge-danger', color:'status-danger'};
+}
+
+function updateStatus() {
+  const s = parseFloat(document.getElementById('inpSuhu').value);
+  const h = parseFloat(document.getElementById('inpHumidity').value);
+  const sd = document.getElementById('suhuStatus');
+  const hd = document.getElementById('humStatus');
+  if (!isNaN(s)) { const st = getSuhuStatus(s); sd.textContent = st.label; sd.className = st.color; }
+  else sd.textContent = '';
+  if (!isNaN(h)) { const ht = getHumStatus(h); hd.textContent = ht.label; hd.className = ht.color; }
+  else hd.textContent = '';
+}
+
+// ===================== FIREBASE OPERATIONS =====================
+async function loadAllData() {
+  if (!window._firebaseReady) return;
+  try {
+    const db = window._firebaseDB;
+    const r = window._firebaseRef;
+    const g = window._firebaseGet;
+    const snap = await g(r(db, 'monitoring'));
+    allData = [];
+    if (snap.exists()) {
+      snap.forEach(child => {
+        allData.push({ id: child.key, ...child.val() });
+      });
+      allData.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+    }
+  } catch(e) {
+    console.error('Load error:', e);
+    showToast('Gagal memuat data dari Firebase', 'error');
+  }
+}
+
+async function submitData() {
+  const tanggal = document.getElementById('inpTanggal').value;
+  const waktu   = document.getElementById('inpWaktu').value;
+  const ruangan = document.getElementById('inpRuangan').value;
+  const petugas = document.getElementById('inpPetugas').value;
+  const suhu    = parseFloat(document.getElementById('inpSuhu').value);
+  const hum     = parseFloat(document.getElementById('inpHumidity').value);
+  const catatan = document.getElementById('inpCatatan').value;
+
+  if (!tanggal || !ruangan || !petugas || isNaN(suhu) || isNaN(hum)) {
+    showToast('Lengkapi semua field yang wajib diisi!', 'error'); return;
+  }
+
+  let sigData = '';
+  if (hasSig) { sigData = document.getElementById('sigCanvas').toDataURL('image/png'); }
+
+  const payload = {
+    tanggal, waktu, ruangan, petugas, suhu, humidity: hum,
+    catatan, signature: sigData,
+    timestamp: new Date(`${tanggal}T${waktu}`).toISOString(),
+    suhuStatus: getSuhuStatus(suhu).label,
+    humStatus: getHumStatus(hum).label,
+    createdAt: new Date().toISOString()
+  };
+
+  try {
+    const db = window._firebaseDB;
+    const r = window._firebaseRef;
+    const p = window._firebasePush;
+    const s = window._firebaseSet;
+    const newRef = p(r(db, 'monitoring'));
+    await s(newRef, payload);
+    showToast('✅ Data berhasil disimpan!', 'success');
+    resetForm();
+    await loadAllData();
+    refreshDashboard();
+  } catch(e) {
+    console.error('Save error:', e);
+    showToast('Gagal menyimpan data: ' + e.message, 'error');
+  }
+}
+
+// ===================== DASHBOARD REFRESH =====================
+function refreshDashboard() {
+  const today = new Date().toISOString().split('T')[0];
+  const todayData = allData.filter(d => d.tanggal === today);
+
+  // Stats
+  document.getElementById('st-total').textContent = allData.length;
+  if (todayData.length > 0) {
+    const avgS = (todayData.reduce((a,d)=>a+d.suhu,0)/todayData.length).toFixed(1);
+    const avgH = (todayData.reduce((a,d)=>a+d.humidity,0)/todayData.length).toFixed(1);
+    const ok = todayData.filter(d => getSuhuStatus(d.suhu).cls==='badge-ok' && getHumStatus(d.humidity).cls==='badge-ok').length;
+    const warn = todayData.length - ok;
+    document.getElementById('st-suhu').textContent = avgS;
+    document.getElementById('st-hum').textContent = avgH;
+    document.getElementById('st-ok').textContent = ok;
+    document.getElementById('st-warn').textContent = warn;
+  } else {
+    ['st-suhu','st-hum','st-ok','st-warn'].forEach(id=>document.getElementById(id).textContent='–');
+  }
+
+  // Gauges
+  const gaugesEl = document.getElementById('gaugesGrid');
+  if (todayData.length === 0) {
+    gaugesEl.innerHTML = '<div class="no-data" style="grid-column:1/-1"><div class="nd-icon">📭</div>Belum ada data hari ini</div>';
+  } else {
+    // Latest per room
+    const roomLatest = {};
+    todayData.forEach(d => { if (!roomLatest[d.ruangan]) roomLatest[d.ruangan] = d; });
+    gaugesEl.innerHTML = Object.entries(roomLatest).map(([room, d]) => {
+      const ss = getSuhuStatus(d.suhu);
+      const hs = getHumStatus(d.humidity);
+      const overall = (ss.cls==='badge-ok' && hs.cls==='badge-ok') ? '#00ff88' : ss.cls==='badge-danger' ? '#ff4444' : '#ffb300';
+      return `<div class="gauge-card" style="border-color:${overall}22">
+        <div class="room-name">${room}</div>
+        <div class="gauge-num" style="color:${overall}">${d.suhu}<span class="gauge-unit">°C</span></div>
+        <div class="gauge-hum">${d.humidity}% RH</div>
+        <div class="gauge-status" style="color:${overall}">${ss.label}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // Trend chart
+  buildTrendChart();
+
+  // Latest table
+  const tbody = document.getElementById('latestTbody');
+  const recent = allData.slice(0, 20);
+  if (recent.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" class="no-data">Belum ada data</td></tr>';
+  } else {
+    tbody.innerHTML = recent.map(d => {
+      const ss = getSuhuStatus(d.suhu);
+      const hs = getHumStatus(d.humidity);
+      return `<tr>
+        <td>${d.tanggal}</td>
+        <td>${d.ruangan}</td>
+        <td><span style="font-family:'Share Tech Mono',monospace;color:var(--accent-cyan)">${d.suhu}</span></td>
+        <td><span style="font-family:'Share Tech Mono',monospace;color:var(--accent-cyan)">${d.humidity}</span></td>
+        <td style="font-size:12px">${d.petugas}</td>
+        <td><span class="badge ${ss.cls}">${ss.label}</span></td>
+        <td><span class="badge ${hs.cls}">${hs.label}</span></td>
+      </tr>`;
+    }).join('');
+  }
+}
+
+function buildTrendChart() {
+  // Get last 7 days
+  const days = [];
+  for (let i=6; i>=0; i--) {
+    const d = new Date(); d.setDate(d.getDate()-i);
+    days.push(d.toISOString().split('T')[0]);
+  }
+  const avgSuhu = days.map(day => {
+    const dd = allData.filter(d=>d.tanggal===day);
+    if (!dd.length) return null;
+    return +(dd.reduce((a,d)=>a+d.suhu,0)/dd.length).toFixed(1);
+  });
+  const avgHum = days.map(day => {
+    const dd = allData.filter(d=>d.tanggal===day);
+    if (!dd.length) return null;
+    return +(dd.reduce((a,d)=>a+d.humidity,0)/dd.length).toFixed(1);
+  });
+
+  const labels = days.map(d => {
+    const dd = new Date(d); return dd.toLocaleDateString('id-ID',{day:'2-digit',month:'short'});
+  });
+
+  if (trendChartInstance) trendChartInstance.destroy();
+  const ctx = document.getElementById('trendChart').getContext('2d');
+  trendChartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Suhu (°C)',
+          data: avgSuhu,
+          borderColor: '#00e5ff',
+          backgroundColor: 'rgba(0,229,255,0.08)',
+          tension: 0.4, fill: true, pointBackgroundColor: '#00e5ff',
+          pointRadius: 4, borderWidth: 2, yAxisID: 'y'
+        },
+        {
+          label: 'Kelembaban (%)',
+          data: avgHum,
+          borderColor: '#00ff88',
+          backgroundColor: 'rgba(0,255,136,0.05)',
+          tension: 0.4, fill: true, pointBackgroundColor: '#00ff88',
+          pointRadius: 4, borderWidth: 2, yAxisID: 'y1'
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#7aadc8', font: { size: 11 } } } },
+      scales: {
+        x: { ticks: { color: '#3d6278', font:{size:10} }, grid: { color: 'rgba(0,119,255,0.06)' } },
+        y: { ticks: { color: '#00e5ff', font:{size:10} }, grid: { color: 'rgba(0,119,255,0.06)' },
+             min: 15, max: 30, title: { display: true, text: '°C', color: '#00e5ff', font:{size:10} } },
+        y1: { position: 'right', ticks: { color: '#00ff88', font:{size:10} }, grid: { drawOnChartArea: false },
+              min: 30, max: 80, title: { display: true, text: '% RH', color: '#00ff88', font:{size:10} } }
+      }
+    }
+  });
+}
+
+// ===================== REKAP =====================
+function loadHarian() {
+  const date = document.getElementById('filterHarian').value;
+  if (!date) { showToast('Pilih tanggal!','error'); return; }
+  const filtered = allData.filter(d => d.tanggal === date);
+  const tbody = document.getElementById('rekapHarianBody');
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="10" class="no-data">Tidak ada data untuk tanggal ini</td></tr>'; return;
+  }
+  tbody.innerHTML = filtered.map((d,i) => {
+    const ss = getSuhuStatus(d.suhu); const hs = getHumStatus(d.humidity);
+    const sigHtml = d.signature ? `<img src="${d.signature}" class="sig-thumb" alt="TTD"/>` : '–';
+    return `<tr>
+      <td>${i+1}</td><td>${d.waktu||'–'}</td><td>${d.ruangan}</td>
+      <td style="font-family:'Share Tech Mono',monospace;color:var(--accent-cyan)">${d.suhu}</td>
+      <td style="font-family:'Share Tech Mono',monospace;color:var(--accent-cyan)">${d.humidity}</td>
+      <td><span class="badge ${ss.cls}">${ss.label}</span></td>
+      <td><span class="badge ${hs.cls}">${hs.label}</span></td>
+      <td style="font-size:12px">${d.petugas}</td>
+      <td style="font-size:12px">${d.catatan||'–'}</td>
+      <td>${sigHtml}</td>
+    </tr>`;
+  }).join('');
+  window._rekapData = {type:'harian', data: filtered, label: date};
+}
+
+function loadBulanan() {
+  const bulan = document.getElementById('filterBulan').value;
+  const tahun = document.getElementById('filterTahunBulan').value;
+  const prefix = `${tahun}-${bulan}`;
+  const filtered = allData.filter(d => d.tanggal && d.tanggal.startsWith(prefix));
+  const tbody = document.getElementById('rekapBulananBody');
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" class="no-data">Tidak ada data untuk bulan ini</td></tr>'; return;
+  }
+  tbody.innerHTML = filtered.map((d,i) => {
+    const ss = getSuhuStatus(d.suhu); const hs = getHumStatus(d.humidity);
+    const overall = (ss.cls==='badge-ok'&&hs.cls==='badge-ok') ? 'badge-ok' : 'badge-warn';
+    return `<tr>
+      <td>${i+1}</td><td>${d.tanggal}</td><td>${d.waktu||'–'}</td>
+      <td>${d.ruangan}</td>
+      <td style="font-family:'Share Tech Mono',monospace;color:var(--accent-cyan)">${d.suhu}</td>
+      <td style="font-family:'Share Tech Mono',monospace;color:var(--accent-cyan)">${d.humidity}</td>
+      <td><span class="badge ${overall}">${overall==='badge-ok'?'NORMAL':'PERIKSA'}</span></td>
+      <td style="font-size:12px">${d.petugas}</td>
+    </tr>`;
+  }).join('');
+  window._rekapData = {type:'bulanan', data: filtered, label: `${prefix}`};
+}
+
+function loadTriwulan() {
+  const tw = parseInt(document.getElementById('filterTriwulan').value);
+  const tahun = document.getElementById('filterTahunTW').value;
+  const monthRanges = { 1:[1,3], 2:[4,6], 3:[7,9], 4:[10,12] };
+  const [mStart, mEnd] = monthRanges[tw];
+  const filtered = allData.filter(d => {
+    if (!d.tanggal) return false;
+    const m = parseInt(d.tanggal.split('-')[1]);
+    const y = d.tanggal.split('-')[0];
+    return y === tahun && m >= mStart && m <= mEnd;
+  });
+  const tbody = document.getElementById('rekapTriwulanBody');
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" class="no-data">Tidak ada data untuk triwulan ini</td></tr>'; return;
+  }
+  tbody.innerHTML = filtered.map((d,i) => {
+    const ss = getSuhuStatus(d.suhu); const hs = getHumStatus(d.humidity);
+    const overall = (ss.cls==='badge-ok'&&hs.cls==='badge-ok') ? 'badge-ok' : 'badge-warn';
+    return `<tr>
+      <td>${i+1}</td><td>${d.tanggal}</td><td>${d.ruangan}</td>
+      <td style="font-family:'Share Tech Mono',monospace;color:var(--accent-cyan)">${d.suhu}</td>
+      <td style="font-family:'Share Tech Mono',monospace;color:var(--accent-cyan)">${d.humidity}</td>
+      <td><span class="badge ${overall}">${overall==='badge-ok'?'NORMAL':'PERIKSA'}</span></td>
+      <td style="font-size:12px">${d.petugas}</td>
+    </tr>`;
+  }).join('');
+  const names = ['','TW I (Jan–Mar)','TW II (Apr–Jun)','TW III (Jul–Sep)','TW IV (Okt–Des)'];
+  window._rekapData = {type:'triwulan', data: filtered, label: `${names[tw]} ${tahun}`};
+}
+
+function loadTahunan() {
+  const tahun = document.getElementById('filterTahun').value;
+  const filtered = allData.filter(d => d.tanggal && d.tanggal.startsWith(tahun));
+  const tbody = document.getElementById('rekapTahunanBody');
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" class="no-data">Tidak ada data untuk tahun ini</td></tr>';
+    document.getElementById('tahunanSummary').innerHTML = '';
+    return;
+  }
+  // Group by month & room
+  const groups = {};
+  filtered.forEach(d => {
+    const month = d.tanggal.slice(0,7);
+    const key = `${month}__${d.ruangan}`;
+    if (!groups[key]) groups[key] = { month, ruangan: d.ruangan, items: [] };
+    groups[key].items.push(d);
+  });
+  const rows = Object.values(groups).sort((a,b) => a.month.localeCompare(b.month));
+  const MONTHS = ['','Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  tbody.innerHTML = rows.map((g,i) => {
+    const avgS = (g.items.reduce((a,d)=>a+d.suhu,0)/g.items.length).toFixed(1);
+    const avgH = (g.items.reduce((a,d)=>a+d.humidity,0)/g.items.length).toFixed(1);
+    const normal = g.items.filter(d=>getSuhuStatus(d.suhu).cls==='badge-ok'&&getHumStatus(d.humidity).cls==='badge-ok').length;
+    const abnormal = g.items.length - normal;
+    const mNum = parseInt(g.month.split('-')[1]);
+    return `<tr>
+      <td>${i+1}</td><td>${MONTHS[mNum]}</td><td>${g.ruangan}</td>
+      <td style="font-family:'Share Tech Mono',monospace;color:var(--accent-cyan)">${avgS}</td>
+      <td style="font-family:'Share Tech Mono',monospace;color:var(--accent-cyan)">${avgH}</td>
+      <td>${g.items.length}</td>
+      <td><span class="badge badge-ok">${normal}</span></td>
+      <td><span class="badge ${abnormal>0?'badge-warn':'badge-ok'}">${abnormal}</span></td>
+    </tr>`;
+  }).join('');
+
+  // Summary cards
+  const totalOk = filtered.filter(d=>getSuhuStatus(d.suhu).cls==='badge-ok'&&getHumStatus(d.humidity).cls==='badge-ok').length;
+  const pct = ((totalOk/filtered.length)*100).toFixed(0);
+  document.getElementById('tahunanSummary').innerHTML = `
+    <div class="stats-row" style="margin-bottom:0">
+      <div class="stat-box"><div class="stat-icon">📦</div><div class="stat-val">${filtered.length}</div><div class="stat-lbl">Total Data ${tahun}</div></div>
+      <div class="stat-box"><div class="stat-icon">✅</div><div class="stat-val" style="color:var(--accent-green)">${pct}%</div><div class="stat-lbl">Tingkat Normal</div></div>
+      <div class="stat-box"><div class="stat-icon">🌡️</div><div class="stat-val">${(filtered.reduce((a,d)=>a+d.suhu,0)/filtered.length).toFixed(1)}</div><div class="stat-lbl">Rata2 Suhu °C</div></div>
+      <div class="stat-box"><div class="stat-icon">💧</div><div class="stat-val">${(filtered.reduce((a,d)=>a+d.humidity,0)/filtered.length).toFixed(1)}</div><div class="stat-lbl">Rata2 RH %</div></div>
+    </div>`;
+  window._rekapData = {type:'tahunan', data: filtered, label: tahun};
+}
+
+// ===================== EXPORT EXCEL =====================
+function exportExcel(type) {
+  if (!window._rekapData || window._rekapData.type !== type) {
+    showToast('Tampilkan data terlebih dahulu!', 'error'); return;
+  }
+  const { data, label } = window._rekapData;
+  const MONTHS = ['','Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+
+  const wsData = [
+    ['MONITORING SUHU RUANGAN RADIOLOGI'],
+    [`Laporan ${type.toUpperCase()} — ${label}`],
+    ['Diekspor:', new Date().toLocaleString('id-ID')],
+    [],
+    ['No','Tanggal','Waktu','Ruangan','Suhu (°C)','Kelembaban (%)','Status Suhu','Status RH','Petugas','Catatan']
+  ];
+
+  data.forEach((d,i) => {
+    const ss = getSuhuStatus(d.suhu);
+    const hs = getHumStatus(d.humidity);
+    wsData.push([i+1, d.tanggal, d.waktu||'–', d.ruangan, d.suhu, d.humidity, ss.label, hs.label, d.petugas, d.catatan||'–']);
+  });
+
+  wsData.push([]);
+  wsData.push(['RINGKASAN']);
+  const avgS = (data.reduce((a,d)=>a+d.suhu,0)/data.length).toFixed(1);
+  const avgH = (data.reduce((a,d)=>a+d.humidity,0)/data.length).toFixed(1);
+  const ok = data.filter(d=>getSuhuStatus(d.suhu).cls==='badge-ok'&&getHumStatus(d.humidity).cls==='badge-ok').length;
+  wsData.push(['Total Data:', data.length]);
+  wsData.push(['Rata-rata Suhu:', `${avgS} °C`]);
+  wsData.push(['Rata-rata Kelembaban:', `${avgH}%`]);
+  wsData.push(['Jumlah Normal:', ok]);
+  wsData.push(['Jumlah Tidak Normal:', data.length-ok]);
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  ws['!cols'] = [5,12,8,20,10,14,18,14,30,20].map(w=>({wch:w}));
+  XLSX.utils.book_append_sheet(wb, ws, `Rekap ${type}`);
+  XLSX.writeFile(wb, `MonitoringSuhu_${type}_${label.replace(/[\s\/]/g,'_')}.xlsx`);
+  showToast('✅ File Excel berhasil diunduh!', 'success');
+}
+
+// ===================== RESET =====================
+function resetForm() {
+  document.getElementById('inpRuangan').value = '';
+  document.getElementById('inpPetugas').value = '';
+  document.getElementById('inpSuhu').value = '';
+  document.getElementById('inpHumidity').value = '';
+  document.getElementById('inpCatatan').value = '';
+  document.getElementById('suhuStatus').textContent = '';
+  document.getElementById('humStatus').textContent = '';
+  clearSig();
+  const now = new Date();
+  document.getElementById('inpTanggal').value = now.toISOString().split('T')[0];
+  document.getElementById('inpWaktu').value = now.toTimeString().slice(0,5);
+}
+
+// ===================== TOAST =====================
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = type;
+  t.style.display = 'block';
+  setTimeout(() => { t.style.display = 'none'; }, 3500);
+}
+</script>
+</body>
+</html>
