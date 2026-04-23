@@ -1,15 +1,15 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Monitoring Suhu Ruangan Radiologi</title>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+  <title>Monitoring Suhu Radiologi v2 — RS Mitra Plumbon</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getDatabase, ref, push, set, get, query, orderByChild, startAt, endAt } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+    import { getDatabase, ref, push, set, get, remove, update, query, orderByChild, startAt, endAt, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
     const firebaseConfig = {
       apiKey: "AIzaSyAOAcEymMrL96dE-3ZCmDoiaoL8QARCXLA",
       authDomain: "monitoring-suhu-radiologi.firebaseapp.com",
@@ -18,529 +18,640 @@
       storageBucket: "monitoring-suhu-radiologi.firebasestorage.app",
       messagingSenderId: "512050657465",
       appId: "1:512050657465:web:2685febcbebca99d024368",
-      measurementId: "G-LS2HCLJJ3K"
     };
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-    window._firebaseDB = db;
-    window._firebaseRef = ref;
-    window._firebasePush = push;
-    window._firebaseSet = set;
-    window._firebaseGet = get;
-    window._firebaseQuery = query;
-    window._firebaseOrderByChild = orderByChild;
-    window._firebaseStartAt = startAt;
-    window._firebaseEndAt = endAt;
+    window._db = db;
+    window._ref = ref;
+    window._push = push;
+    window._set = set;
+    window._get = get;
+    window._remove = remove;
+    window._update = update;
+    window._query = query;
+    window._orderByChild = orderByChild;
+    window._startAt = startAt;
+    window._endAt = endAt;
+    window._onValue = onValue;
     window._firebaseReady = true;
     document.dispatchEvent(new Event('firebaseReady'));
   </script>
 
   <style>
     :root {
-      --bg:        #070d1a;
-      --bg2:       #0c1525;
-      --surface:   rgba(255,255,255,0.04);
-      --surface2:  rgba(255,255,255,0.07);
-      --border:    rgba(255,255,255,0.08);
-      --border2:   rgba(255,255,255,0.14);
+      --bg:        #060b16;
+      --bg2:       #0a1120;
+      --bg3:       #0e1629;
+      --surface:   rgba(255,255,255,0.035);
+      --surface2:  rgba(255,255,255,0.065);
+      --surface3:  rgba(255,255,255,0.09);
+      --border:    rgba(255,255,255,0.07);
+      --border2:   rgba(255,255,255,0.13);
+      --border3:   rgba(255,255,255,0.2);
 
       --cyan:      #00e5ff;
-      --cyan-dim:  rgba(0,229,255,0.12);
-      --cyan-glow: rgba(0,229,255,0.25);
+      --cyan-dim:  rgba(0,229,255,0.10);
+      --cyan-glow: rgba(0,229,255,0.22);
       --blue:      #3b82f6;
-      --blue-dim:  rgba(59,130,246,0.14);
+      --blue-dim:  rgba(59,130,246,0.12);
+      --indigo:    #818cf8;
       --teal:      #2dd4bf;
-      --teal-dim:  rgba(45,212,191,0.12);
+      --teal-dim:  rgba(45,212,191,0.10);
       --green:     #22c55e;
-      --green-dim: rgba(34,197,94,0.12);
+      --green-dim: rgba(34,197,94,0.10);
       --amber:     #f59e0b;
-      --amber-dim: rgba(245,158,11,0.12);
+      --amber-dim: rgba(245,158,11,0.10);
       --red:       #f43f5e;
-      --red-dim:   rgba(244,63,94,0.12);
+      --red-dim:   rgba(244,63,94,0.10);
+      --purple:    #a855f7;
 
       --text:      #e2e8f0;
       --text-dim:  #64748b;
-      --text-muted:#334155;
+      --text-muted:#2a3a52;
 
-      --radius:    16px;
-      --radius-sm: 10px;
-      --radius-xs: 7px;
+      --r:  14px;
+      --rs: 9px;
+      --rx: 6px;
+
+      --nav-h: 64px;
+      --tab-h: 52px;
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: 'Outfit', sans-serif;
+      font-family: 'DM Sans', sans-serif;
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
       overflow-x: hidden;
     }
 
-    /* ===== BG NOISE + GLOW ===== */
     body::before {
-      content: '';
-      position: fixed; inset: 0;
+      content:'';
+      position:fixed; inset:0; pointer-events:none; z-index:0;
       background:
-        radial-gradient(ellipse 60% 40% at 20% 10%, rgba(0,229,255,0.06) 0%, transparent 60%),
-        radial-gradient(ellipse 50% 50% at 80% 80%, rgba(59,130,246,0.05) 0%, transparent 60%);
-      pointer-events: none; z-index: 0;
+        radial-gradient(ellipse 70% 50% at 15% 5%, rgba(0,229,255,0.055) 0%, transparent 55%),
+        radial-gradient(ellipse 50% 60% at 85% 90%, rgba(59,130,246,0.045) 0%, transparent 55%),
+        radial-gradient(ellipse 40% 40% at 50% 50%, rgba(129,140,248,0.02) 0%, transparent 60%);
     }
 
     /* ===== LOADING ===== */
     #loadingOverlay {
-      position: fixed; inset: 0;
-      background: var(--bg);
-      display: flex; align-items: center; justify-content: center;
-      z-index: 9999; flex-direction: column; gap: 22px;
+      position:fixed; inset:0; background:var(--bg);
+      display:flex; align-items:center; justify-content:center;
+      z-index:9999; flex-direction:column; gap:20px;
     }
-    .load-logo {
-      width: 72px; height: 72px;
-      background: linear-gradient(135deg, #0ea5e9, #00e5ff);
-      border-radius: 20px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 30px;
-      box-shadow: 0 0 40px rgba(0,229,255,0.4), 0 0 80px rgba(0,229,255,0.15);
-      animation: loadPulse 1.6s ease-in-out infinite;
+    .load-icon {
+      width:80px; height:80px; border-radius:22px;
+      background: linear-gradient(135deg, #0369a1, #00e5ff);
+      display:flex; align-items:center; justify-content:center; font-size:34px;
+      box-shadow: 0 0 50px var(--cyan-glow), 0 0 100px rgba(0,229,255,0.1);
+      animation: iconPulse 2s ease-in-out infinite;
     }
-    @keyframes loadPulse { 0%,100%{transform:scale(1);box-shadow:0 0 40px rgba(0,229,255,0.4),0 0 80px rgba(0,229,255,0.15);} 50%{transform:scale(1.07);box-shadow:0 0 60px rgba(0,229,255,0.6),0 0 120px rgba(0,229,255,0.25);} }
-    .load-text { font-size: 11px; font-weight: 600; color: var(--text-dim); letter-spacing: 4px; text-transform: uppercase; }
-    .load-bar { width: 180px; height: 2px; background: var(--border); border-radius: 99px; overflow: hidden; }
-    .load-bar-fill { height: 100%; width: 40%; background: linear-gradient(90deg, var(--blue), var(--cyan)); border-radius: 99px; animation: loadBar 1.2s ease-in-out infinite; }
-    @keyframes loadBar { 0%{transform:translateX(-150%);} 100%{transform:translateX(350%);} }
+    @keyframes iconPulse {
+      0%,100%{transform:scale(1);box-shadow:0 0 50px var(--cyan-glow),0 0 100px rgba(0,229,255,0.1);}
+      50%{transform:scale(1.06);box-shadow:0 0 80px rgba(0,229,255,0.5),0 0 160px rgba(0,229,255,0.18);}
+    }
+    .load-label { font-family:'Syne',sans-serif; font-size:11px; font-weight:700; color:var(--text-dim); letter-spacing:5px; text-transform:uppercase; }
+    .load-track { width:200px; height:2px; background:var(--border); border-radius:99px; overflow:hidden; }
+    .load-fill { height:100%; width:45%; background:linear-gradient(90deg,var(--blue),var(--cyan)); border-radius:99px; animation:loadScan 1.4s ease-in-out infinite; }
+    @keyframes loadScan { 0%{transform:translateX(-130%);} 100%{transform:translateX(280%);} }
 
     /* ===== HEADER ===== */
     header {
-      position: sticky; top: 0; z-index: 200;
-      background: rgba(7,13,26,0.85);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border-bottom: 1px solid var(--border);
-      padding: 0 28px;
-      height: 66px;
-      display: flex; align-items: center; justify-content: space-between;
+      position:sticky; top:0; z-index:200;
+      height:var(--nav-h);
+      background:rgba(6,11,22,0.88);
+      backdrop-filter:blur(24px);
+      -webkit-backdrop-filter:blur(24px);
+      border-bottom:1px solid var(--border);
+      padding:0 28px;
+      display:flex; align-items:center; justify-content:space-between;
     }
-    .hdr-left { display: flex; align-items: center; gap: 14px; }
-    .logo-mark {
-      width: 42px; height: 42px; flex-shrink: 0;
-      background: linear-gradient(135deg, #0ea5e9, #00e5ff);
-      border-radius: 12px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 19px;
-      box-shadow: 0 0 20px rgba(0,229,255,0.35);
+    .hdr-left { display:flex; align-items:center; gap:13px; }
+    .logo {
+      width:44px; height:44px; flex-shrink:0; border-radius:13px;
+      background:linear-gradient(135deg, #0369a1, #00e5ff);
+      display:flex; align-items:center; justify-content:center; font-size:20px;
+      box-shadow:0 0 24px var(--cyan-glow);
     }
-    .brand h1 { font-size: 15px; font-weight: 700; color: #fff; letter-spacing: -0.3px; line-height: 1.2; }
-    .brand p  { font-size: 11px; color: var(--text-dim); font-weight: 400; margin-top: 1px; }
+    .brand-name { font-family:'Syne',sans-serif; font-size:15px; font-weight:800; color:#fff; letter-spacing:-0.3px; line-height:1.1; }
+    .brand-sub  { font-size:11px; color:var(--text-dim); font-weight:400; margin-top:2px; }
+    .hdr-right  { display:flex; align-items:center; gap:10px; }
 
-    .hdr-right { display: flex; align-items: center; gap: 12px; }
-    .live-pill {
-      display: flex; align-items: center; gap: 7px;
-      background: rgba(34,197,94,0.1);
-      border: 1px solid rgba(34,197,94,0.25);
-      padding: 5px 13px; border-radius: 99px;
-      font-size: 10px; font-weight: 700; color: #22c55e; letter-spacing: 2px;
+    .live-badge {
+      display:flex; align-items:center; gap:6px;
+      background:rgba(34,197,94,0.08); border:1px solid rgba(34,197,94,0.2);
+      padding:5px 12px; border-radius:99px;
+      font-size:9px; font-weight:700; color:#22c55e; letter-spacing:2.5px;
     }
-    .live-dot { width: 6px; height: 6px; background: #22c55e; border-radius: 50%; box-shadow: 0 0 8px #22c55e; animation: blink 1.6s infinite; }
+    .live-dot { width:6px; height:6px; background:#22c55e; border-radius:50%; box-shadow:0 0 8px #22c55e; animation:blink 1.8s infinite; }
     @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.2;} }
-    .clock-box {
-      font-family: 'Space Mono', monospace;
-      font-size: 13px; color: var(--cyan);
-      background: var(--cyan-dim);
-      border: 1px solid rgba(0,229,255,0.2);
-      padding: 6px 14px; border-radius: 8px;
-      letter-spacing: 1px;
+
+    .clock {
+      font-family:'DM Mono',monospace; font-size:13px; color:var(--cyan);
+      background:var(--cyan-dim); border:1px solid rgba(0,229,255,0.18);
+      padding:6px 14px; border-radius:8px; letter-spacing:1px;
     }
 
-    /* ===== NAV ===== */
+    /* auto-refresh badge */
+    .ar-badge {
+      display:flex; align-items:center; gap:6px;
+      background:var(--blue-dim); border:1px solid rgba(59,130,246,0.2);
+      padding:5px 12px; border-radius:99px;
+      font-size:9px; font-weight:700; color:var(--blue); letter-spacing:1.5px;
+      cursor:pointer; transition:all .2s;
+    }
+    .ar-badge:hover { background:rgba(59,130,246,0.2); }
+    .ar-dot { width:6px; height:6px; background:var(--blue); border-radius:50%; }
+    .ar-dot.spinning { animation:arSpin 2s linear infinite; }
+    @keyframes arSpin { 0%{opacity:1;} 50%{opacity:0.3;} 100%{opacity:1;} }
+
+    /* ===== TAB NAV ===== */
     nav {
-      background: rgba(7,13,26,0.7);
-      backdrop-filter: blur(16px);
-      border-bottom: 1px solid var(--border);
-      padding: 0 24px;
-      display: flex; gap: 2px;
-      overflow-x: auto; scrollbar-width: none;
-      position: sticky; top: 66px; z-index: 100;
+      position:sticky; top:var(--nav-h); z-index:100;
+      height:var(--tab-h);
+      background:rgba(6,11,22,0.75);
+      backdrop-filter:blur(16px);
+      border-bottom:1px solid var(--border);
+      padding:0 20px;
+      display:flex; gap:0; overflow-x:auto; scrollbar-width:none;
+      align-items:stretch;
     }
-    nav::-webkit-scrollbar { display: none; }
+    nav::-webkit-scrollbar { display:none; }
     .tab-btn {
-      background: transparent; border: none;
-      border-bottom: 2px solid transparent;
-      padding: 14px 18px;
-      color: var(--text-dim);
-      font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 500;
-      cursor: pointer; transition: all 0.22s;
-      white-space: nowrap;
-      display: flex; align-items: center; gap: 7px;
+      background:transparent; border:none;
+      border-bottom:2px solid transparent;
+      padding:0 18px;
+      color:var(--text-dim);
+      font-family:'DM Sans',sans-serif; font-size:12.5px; font-weight:500;
+      cursor:pointer; transition:all .2s;
+      white-space:nowrap; display:flex; align-items:center; gap:7px;
     }
-    .tab-btn:hover { color: var(--text); background: rgba(255,255,255,0.03); }
-    .tab-btn.active { color: var(--cyan); border-bottom-color: var(--cyan); font-weight: 600; }
+    .tab-btn:hover { color:var(--text); background:rgba(255,255,255,0.025); }
+    .tab-btn.active { color:var(--cyan); border-bottom-color:var(--cyan); font-weight:700; }
+    .tab-badge {
+      background:rgba(244,63,94,0.15); color:#fb7185; border:1px solid rgba(244,63,94,0.25);
+      font-size:9px; font-weight:800; padding:2px 6px; border-radius:99px; letter-spacing:0.5px;
+    }
 
     /* ===== MAIN ===== */
-    main { padding: 28px 28px; max-width: 1420px; margin: 0 auto; position: relative; z-index: 1; }
-    .tab-content { display: none; }
-    .tab-content.active { display: block; animation: fadeUp .3s ease; }
-    @keyframes fadeUp { from{opacity:0;transform:translateY(12px);} to{opacity:1;transform:translateY(0);} }
+    main { padding:28px; max-width:1500px; margin:0 auto; position:relative; z-index:1; }
+
+    .tab-content { display:none; }
+    .tab-content.active { display:block; animation:fadeUp .28s ease; }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(10px);} to{opacity:1;transform:translateY(0);} }
 
     /* ===== PAGE HEADER ===== */
-    .pg-hdr { margin-bottom: 24px; }
-    .pg-hdr h2 {
-      font-size: 22px; font-weight: 800; color: #fff;
-      letter-spacing: -0.5px;
-      background: linear-gradient(90deg, #fff 0%, var(--cyan) 100%);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    .pg-hdr { margin-bottom:24px; display:flex; align-items:flex-end; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+    .pg-hdr-left h2 {
+      font-family:'Syne',sans-serif; font-size:22px; font-weight:800; letter-spacing:-0.5px;
+      background:linear-gradient(90deg,#fff 0%,var(--cyan) 100%);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
     }
-    .pg-hdr p { font-size: 13px; color: var(--text-dim); margin-top: 4px; }
+    .pg-hdr-left p { font-size:12.5px; color:var(--text-dim); margin-top:4px; }
 
-    /* ===== GLASS CARD ===== */
+    /* ===== CARD ===== */
     .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 24px;
-      backdrop-filter: blur(12px);
-      transition: border-color 0.2s;
+      background:var(--surface);
+      border:1px solid var(--border);
+      border-radius:var(--r);
+      padding:22px;
+      backdrop-filter:blur(10px);
+      transition:border-color .2s;
     }
-    .card:hover { border-color: var(--border2); }
-    .card + .card { margin-top: 18px; }
-    .card-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+    .card:hover { border-color:var(--border2); }
+    .card + .card { margin-top:16px; }
+    .card-hdr { display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; flex-wrap:wrap; gap:10px; }
     .card-title {
-      font-size: 11px; font-weight: 700; color: var(--text-dim);
-      text-transform: uppercase; letter-spacing: 1.5px;
-      display: flex; align-items: center; gap: 9px;
+      font-size:10px; font-weight:700; color:var(--text-dim);
+      text-transform:uppercase; letter-spacing:1.8px;
+      display:flex; align-items:center; gap:8px;
     }
-    .ci {
-      width: 28px; height: 28px; border-radius: 7px;
-      display: flex; align-items: center; justify-content: center; font-size: 13px;
-    }
-    .ci-cyan    { background: var(--cyan-dim);  border: 1px solid rgba(0,229,255,0.15); }
-    .ci-blue    { background: var(--blue-dim);  border: 1px solid rgba(59,130,246,0.15); }
-    .ci-teal    { background: var(--teal-dim);  border: 1px solid rgba(45,212,191,0.15); }
-    .ci-green   { background: var(--green-dim); border: 1px solid rgba(34,197,94,0.15); }
-    .ci-amber   { background: var(--amber-dim); border: 1px solid rgba(245,158,11,0.15); }
+    .ci { width:26px; height:26px; border-radius:7px; display:flex; align-items:center; justify-content:center; font-size:12px; }
+    .ci-cyan  { background:var(--cyan-dim);  border:1px solid rgba(0,229,255,0.15); }
+    .ci-blue  { background:var(--blue-dim);  border:1px solid rgba(59,130,246,0.15); }
+    .ci-teal  { background:var(--teal-dim);  border:1px solid rgba(45,212,191,0.15); }
+    .ci-green { background:var(--green-dim); border:1px solid rgba(34,197,94,0.15); }
+    .ci-amber { background:var(--amber-dim); border:1px solid rgba(245,158,11,0.15); }
+    .ci-red   { background:var(--red-dim);   border:1px solid rgba(244,63,94,0.15); }
 
     /* ===== STAT CARDS ===== */
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
-      gap: 14px; margin-bottom: 20px;
-    }
+    .stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(165px,1fr)); gap:12px; margin-bottom:18px; }
     .stat-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 20px 20px 18px;
-      position: relative; overflow: hidden;
-      transition: all 0.22s; cursor: default;
+      background:var(--surface); border:1px solid var(--border); border-radius:var(--r);
+      padding:18px 20px; position:relative; overflow:hidden;
+      transition:all .22s; cursor:default;
     }
-    .stat-card:hover { transform: translateY(-2px); border-color: var(--border2); }
+    .stat-card:hover { transform:translateY(-3px); border-color:var(--border2); }
     .stat-card::before {
-      content: '';
-      position: absolute; top: 0; left: 0; right: 0; height: 2px;
-      border-radius: 16px 16px 0 0;
+      content:''; position:absolute; top:0; left:0; right:0; height:2px; border-radius:14px 14px 0 0;
     }
-    .stat-card::after {
-      content: '';
-      position: absolute; top: -30px; right: -30px;
-      width: 90px; height: 90px; border-radius: 50%;
-      opacity: 0.06;
-    }
-    .sc-cyan::before  { background: linear-gradient(90deg, var(--cyan), #0ea5e9); }
-    .sc-blue::before  { background: linear-gradient(90deg, var(--blue), #818cf8); }
-    .sc-teal::before  { background: linear-gradient(90deg, var(--teal), #06b6d4); }
-    .sc-green::before { background: linear-gradient(90deg, var(--green), var(--teal)); }
-    .sc-amber::before { background: linear-gradient(90deg, var(--amber), #fb923c); }
-    .sc-red::before   { background: linear-gradient(90deg, var(--red), #f97316); }
-    .sc-cyan::after   { background: var(--cyan); }
-    .sc-blue::after   { background: var(--blue); }
-    .sc-teal::after   { background: var(--teal); }
-    .sc-green::after  { background: var(--green); }
-    .sc-amber::after  { background: var(--amber); }
+    .sc-cyan::before   { background:linear-gradient(90deg,var(--cyan),#0ea5e9); }
+    .sc-blue::before   { background:linear-gradient(90deg,var(--blue),var(--indigo)); }
+    .sc-teal::before   { background:linear-gradient(90deg,var(--teal),#06b6d4); }
+    .sc-green::before  { background:linear-gradient(90deg,var(--green),var(--teal)); }
+    .sc-amber::before  { background:linear-gradient(90deg,var(--amber),#fb923c); }
+    .sc-red::before    { background:linear-gradient(90deg,var(--red),#f97316); }
+    .sc-purple::before { background:linear-gradient(90deg,var(--purple),var(--blue)); }
 
-    .st-lbl { font-size: 10px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 12px; }
-    .st-val { font-family: 'Space Mono', monospace; font-size: 32px; font-weight: 700; color: #fff; line-height: 1; }
-    .st-unit { font-size: 11px; color: var(--text-dim); font-family: 'Outfit', sans-serif; margin-top: 5px; }
+    .st-lbl { font-size:9.5px; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:1.5px; margin-bottom:10px; }
+    .st-val { font-family:'DM Mono',monospace; font-size:32px; font-weight:500; color:#fff; line-height:1; }
+    .st-unit { font-size:10.5px; color:var(--text-dim); margin-top:5px; }
 
-    /* ===== TWO COL ===== */
-    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 18px; }
-    @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+    /* ===== GRID LAYOUTS ===== */
+    .two-col { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+    .three-col { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:16px; }
+    @media (max-width:1024px) { .three-col { grid-template-columns:1fr 1fr; } }
+    @media (max-width:900px)  { .two-col,.three-col { grid-template-columns:1fr; } }
 
     /* ===== GAUGE CARDS ===== */
-    .gauges-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); gap: 12px; }
+    .gauges-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; }
     .gauge-card {
-      background: rgba(255,255,255,0.03);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      padding: 16px 14px; text-align: center;
-      transition: all 0.22s;
+      background:rgba(255,255,255,0.025); border:1px solid var(--border);
+      border-radius:var(--rs); padding:16px 12px; text-align:center; transition:all .2s;
     }
-    .gauge-card:hover { background: rgba(255,255,255,0.06); transform: translateY(-2px); }
-    .g-room { font-size: 8.5px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 10px; }
-    .g-temp { font-family: 'Space Mono', monospace; font-size: 30px; font-weight: 700; line-height: 1; }
-    .g-unit { font-size: 13px; }
-    .g-hum  { font-family: 'Space Mono', monospace; font-size: 12px; color: var(--text-dim); margin-top: 5px; }
-    .g-badge { margin-top: 10px; }
+    .gauge-card:hover { background:rgba(255,255,255,0.055); transform:translateY(-2px); }
+    .g-room { font-size:8px; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:1.5px; margin-bottom:10px; }
+    .g-temp { font-family:'DM Mono',monospace; font-size:28px; font-weight:500; line-height:1; }
+    .g-unit { font-size:13px; }
+    .g-hum  { font-family:'DM Mono',monospace; font-size:11px; color:var(--text-dim); margin-top:4px; }
+    .g-badge { margin-top:8px; }
 
     /* ===== CHART ===== */
-    .chart-wrap { position: relative; height: 230px; }
+    .chart-wrap { position:relative; height:220px; }
+    .chart-wrap-tall { position:relative; height:280px; }
 
     /* ===== TABLE ===== */
-    .table-wrap { overflow-x: auto; border-radius: var(--radius-sm); border: 1px solid var(--border); }
-    table { width: 100%; border-collapse: collapse; min-width: 680px; }
-    thead tr { background: rgba(255,255,255,0.03); }
+    .table-wrap { overflow-x:auto; border-radius:var(--rs); border:1px solid var(--border); }
+    table { width:100%; border-collapse:collapse; min-width:600px; }
+    thead tr { background:rgba(255,255,255,0.025); }
     th {
-      padding: 11px 16px; text-align: left;
-      font-size: 9px; font-weight: 700;
-      letter-spacing: 1.8px; text-transform: uppercase;
-      color: var(--text-dim); border-bottom: 1px solid var(--border);
-      white-space: nowrap;
+      padding:10px 16px; text-align:left;
+      font-size:9px; font-weight:700; letter-spacing:2px; text-transform:uppercase;
+      color:var(--text-dim); border-bottom:1px solid var(--border); white-space:nowrap;
     }
-    td {
-      padding: 12px 16px; font-size: 13px;
-      border-bottom: 1px solid rgba(255,255,255,0.04);
-      color: var(--text); vertical-align: middle;
-    }
-    tbody tr:last-child td { border-bottom: none; }
-    tbody tr:hover { background: rgba(255,255,255,0.03); }
-    .mono { font-family: 'Space Mono', monospace; font-weight: 700; color: var(--cyan); font-size: 12px; }
+    td { padding:11px 16px; font-size:12.5px; border-bottom:1px solid rgba(255,255,255,0.035); color:var(--text); vertical-align:middle; }
+    tbody tr:last-child td { border-bottom:none; }
+    tbody tr:hover { background:rgba(255,255,255,0.025); }
+    .mono { font-family:'DM Mono',monospace; font-weight:500; color:var(--cyan); font-size:12px; }
 
     /* ===== BADGES ===== */
     .badge {
-      display: inline-flex; align-items: center;
-      padding: 3px 10px; border-radius: 99px;
-      font-size: 9px; font-weight: 700;
-      letter-spacing: 0.8px; white-space: nowrap;
-      border: 1px solid transparent;
+      display:inline-flex; align-items:center;
+      padding:3px 9px; border-radius:99px;
+      font-size:9px; font-weight:700; letter-spacing:0.8px; white-space:nowrap;
+      border:1px solid transparent;
     }
-    .badge-ok     { background: rgba(34,197,94,0.12);  color: #4ade80; border-color: rgba(34,197,94,0.25); }
-    .badge-warn   { background: rgba(245,158,11,0.12); color: #fbbf24; border-color: rgba(245,158,11,0.25); }
-    .badge-danger { background: rgba(244,63,94,0.12);  color: #fb7185; border-color: rgba(244,63,94,0.25); }
+    .badge-ok     { background:rgba(34,197,94,0.1);  color:#4ade80; border-color:rgba(34,197,94,0.22); }
+    .badge-warn   { background:rgba(245,158,11,0.1); color:#fbbf24; border-color:rgba(245,158,11,0.22); }
+    .badge-danger { background:rgba(244,63,94,0.1);  color:#fb7185; border-color:rgba(244,63,94,0.22); }
 
-    /* ===== SECTION DIVIDER ===== */
+    /* ===== SECTION DIV ===== */
     .sec-div {
-      font-size: 9.5px; font-weight: 700; color: var(--text-dim);
-      text-transform: uppercase; letter-spacing: 2.5px;
-      display: flex; align-items: center; gap: 12px;
-      margin: 24px 0 16px;
+      font-size:9px; font-weight:700; color:var(--text-dim);
+      text-transform:uppercase; letter-spacing:2.5px;
+      display:flex; align-items:center; gap:12px; margin:22px 0 16px;
     }
-    .sec-div::before, .sec-div::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+    .sec-div::after { content:''; flex:1; height:1px; background:var(--border); }
 
     /* ===== FORM ===== */
-    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
-    .form-group { display: flex; flex-direction: column; gap: 7px; }
-    .form-group label { font-size: 11px; font-weight: 600; color: var(--text-dim); letter-spacing: 0.3px; }
+    .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    @media (max-width:600px) { .form-grid { grid-template-columns:1fr; } }
+    .form-group { display:flex; flex-direction:column; gap:6px; }
+    .form-group label { font-size:10px; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:1.2px; }
     .form-control {
-      background: rgba(255,255,255,0.05);
-      border: 1.5px solid var(--border);
-      border-radius: var(--radius-xs);
-      padding: 10px 14px;
-      color: var(--text);
-      font-family: 'Outfit', sans-serif; font-size: 14px;
-      outline: none; transition: all 0.2s; width: 100%;
-      -webkit-appearance: none; appearance: none;
+      background:var(--surface2); border:1px solid var(--border2);
+      border-radius:var(--rs); padding:10px 14px;
+      font-family:'DM Sans',sans-serif; font-size:13px; color:var(--text);
+      outline:none; transition:border-color .2s, box-shadow .2s;
+      width:100%;
     }
-    .form-control:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px var(--cyan-dim); background: rgba(0,229,255,0.04); }
-    .form-control option { background: #0c1525; color: var(--text); }
-    select.form-control {
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath fill='%2364748b' d='M5 7L0.5 2.5h9z'/%3E%3C/svg%3E");
-      background-repeat: no-repeat; background-position: right 13px center; padding-right: 34px;
-    }
+    .form-control:focus { border-color:rgba(0,229,255,0.4); box-shadow:0 0 0 3px rgba(0,229,255,0.07); }
+    .form-control option { background:#0a1120; }
+    select.form-control { cursor:pointer; }
 
     /* ===== READING CARDS ===== */
-    .reading-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(195px, 1fr)); gap: 14px; margin-top: 14px; }
+    .reading-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
+    @media (max-width:800px) { .reading-grid { grid-template-columns:1fr 1fr; } }
+    @media (max-width:500px) { .reading-grid { grid-template-columns:1fr; } }
     .reading-card {
-      background: rgba(255,255,255,0.03);
-      border: 1.5px solid var(--border);
-      border-radius: var(--radius-sm); padding: 20px 18px; text-align: center;
-      transition: all 0.22s;
+      background:var(--surface2); border:1px solid var(--border2);
+      border-radius:var(--r); padding:20px; text-align:center;
+      transition:border-color .2s;
     }
-    .reading-card:focus-within {
-      border-color: var(--cyan);
-      background: rgba(0,229,255,0.04);
-      box-shadow: 0 0 0 3px var(--cyan-dim);
+    .reading-card:hover { border-color:var(--border3); }
+    .rc-icon { font-size:26px; margin-bottom:8px; }
+    .rc-lbl { font-size:10px; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:1.2px; margin-bottom:12px; }
+    .rc-row { display:flex; align-items:center; justify-content:center; gap:4px; }
+    .rc-row input {
+      background:transparent; border:none; outline:none;
+      font-family:'DM Mono',monospace; font-size:40px; font-weight:500; color:#fff;
+      text-align:center; width:110px;
     }
-    .rc-icon { font-size: 22px; margin-bottom: 8px; }
-    .rc-lbl { font-size: 9px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 14px; }
-    .rc-row { display: flex; align-items: baseline; justify-content: center; gap: 4px; }
-    .rc-row input[type="number"] {
-      background: transparent; border: none; outline: none;
-      font-family: 'Space Mono', monospace;
-      font-size: 38px; font-weight: 700; color: #fff;
-      text-align: center; width: 100px;
-    }
-    .rc-row input::-webkit-inner-spin-button { opacity: 0; }
-    .rc-u { font-size: 16px; color: var(--text-dim); font-family: 'Space Mono', monospace; }
-    .rc-range { font-size: 10px; color: var(--text-dim); margin-top: 7px; }
-    .rc-status-lbl { margin-top: 10px; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; }
+    .rc-row input::-webkit-inner-spin-button { opacity:0; }
+    .rc-u { font-size:16px; color:var(--text-dim); font-family:'DM Mono',monospace; }
+    .rc-range { font-size:10px; color:var(--text-muted); margin-top:6px; }
+    .rc-status-lbl { margin-top:8px; font-size:11px; font-weight:700; letter-spacing:0.5px; }
     .rc-text textarea {
-      width: 100%; height: 100px; resize: none;
-      border: none; background: transparent; outline: none;
-      font-family: 'Outfit', sans-serif; font-size: 13px; color: var(--text);
+      width:100%; height:90px; resize:none;
+      border:none; background:transparent; outline:none;
+      font-family:'DM Sans',sans-serif; font-size:13px; color:var(--text);
     }
-    .rc-text textarea::placeholder { color: var(--text-dim); }
-    .status-ok     { color: #4ade80; }
-    .status-warn   { color: #fbbf24; }
-    .status-danger { color: #fb7185; }
+    .rc-text textarea::placeholder { color:var(--text-dim); }
+    .status-ok     { color:#4ade80; }
+    .status-warn   { color:#fbbf24; }
+    .status-danger { color:#fb7185; }
 
     /* ===== SIGNATURE ===== */
     .sig-box {
-      border-radius: var(--radius-sm); overflow: hidden;
-      border: 1.5px dashed var(--border2);
-      background: rgba(255,255,255,0.02);
-      position: relative;
+      border-radius:var(--rs); overflow:hidden;
+      border:1.5px dashed var(--border2);
+      background:rgba(255,255,255,0.015); position:relative;
     }
-    #sigCanvas { display: block; width: 100%; height: 128px; cursor: crosshair; touch-action: none; }
+    #sigCanvas { display:block; width:100%; height:128px; cursor:crosshair; touch-action:none; }
     .sig-ph {
-      position: absolute; inset: 0;
-      display: flex; align-items: center; justify-content: center;
-      pointer-events: none; font-size: 13px; color: var(--text-dim); gap: 7px;
+      position:absolute; inset:0;
+      display:flex; align-items:center; justify-content:center;
+      pointer-events:none; font-size:13px; color:var(--text-dim); gap:7px;
     }
-    .sig-foot { display: flex; justify-content: flex-end; padding-top: 10px; }
+    .sig-foot { display:flex; justify-content:flex-end; padding-top:10px; }
 
     /* ===== BUTTONS ===== */
     .btn {
-      padding: 10px 20px; border: none; border-radius: var(--radius-xs);
-      font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 600;
-      cursor: pointer; transition: all 0.2s;
-      display: inline-flex; align-items: center; gap: 7px; white-space: nowrap;
+      padding:10px 20px; border:none; border-radius:var(--rx);
+      font-family:'DM Sans',sans-serif; font-size:13px; font-weight:600;
+      cursor:pointer; transition:all .2s;
+      display:inline-flex; align-items:center; gap:7px; white-space:nowrap;
     }
-    .btn-primary {
-      background: linear-gradient(135deg, #0ea5e9, var(--cyan));
-      color: #000; font-weight: 700;
-      box-shadow: 0 0 20px rgba(0,229,255,0.25);
-    }
-    .btn-primary:hover { box-shadow: 0 0 30px rgba(0,229,255,0.4); transform: translateY(-1px); filter: brightness(1.05); }
-    .btn-success {
-      background: linear-gradient(135deg, #16a34a, var(--green));
-      color: #000; font-weight: 700;
-      box-shadow: 0 0 16px rgba(34,197,94,0.2);
-    }
-    .btn-success:hover { box-shadow: 0 0 24px rgba(34,197,94,0.35); transform: translateY(-1px); }
-    .btn-ghost {
-      background: rgba(255,255,255,0.06); color: var(--text);
-      border: 1px solid var(--border);
-    }
-    .btn-ghost:hover { background: rgba(255,255,255,0.1); }
-    .btn-danger-xs {
-      background: var(--red-dim); color: #fb7185;
-      border: 1px solid rgba(244,63,94,0.25);
-      font-size: 11px; padding: 6px 14px;
-    }
-    .btn-danger-xs:hover { background: rgba(244,63,94,0.2); }
-    .btn-group { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-    .divider { height: 1px; background: var(--border); margin: 22px 0; }
+    .btn-primary { background:linear-gradient(135deg,#0369a1,var(--cyan)); color:#000; font-weight:700; box-shadow:0 0 22px rgba(0,229,255,0.22); }
+    .btn-primary:hover { filter:brightness(1.08); box-shadow:0 0 32px rgba(0,229,255,0.38); transform:translateY(-1px); }
+    .btn-success { background:linear-gradient(135deg,#15803d,var(--green)); color:#000; font-weight:700; box-shadow:0 0 18px rgba(34,197,94,0.18); }
+    .btn-success:hover { filter:brightness(1.08); transform:translateY(-1px); }
+    .btn-amber { background:linear-gradient(135deg,#b45309,var(--amber)); color:#000; font-weight:700; }
+    .btn-amber:hover { filter:brightness(1.08); transform:translateY(-1px); }
+    .btn-ghost { background:var(--surface2); color:var(--text); border:1px solid var(--border2); }
+    .btn-ghost:hover { background:var(--surface3); border-color:var(--border3); }
+    .btn-danger { background:var(--red-dim); color:#fb7185; border:1px solid rgba(244,63,94,0.22); }
+    .btn-danger:hover { background:rgba(244,63,94,0.18); }
+    .btn-xs { padding:6px 13px; font-size:11px; border-radius:5px; }
+    .btn-sm { padding:8px 15px; font-size:12px; }
+    .btn-group { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .divider { height:1px; background:var(--border); margin:20px 0; }
+
+    /* ===== FILTER CONTROLS ===== */
+    .rekap-controls { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; margin-bottom:20px; }
+    .rekap-controls .form-group { min-width:160px; }
+    .filter-row { display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; margin-bottom:16px; }
+    .filter-row .form-group { min-width:150px; }
+
+    /* ===== SUMMARY CARDS ===== */
+    .sum-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin-bottom:18px; }
+    .sum-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--rs); padding:14px; text-align:center; }
+    .sum-val { font-family:'DM Mono',monospace; font-size:22px; font-weight:500; color:#fff; }
+    .sum-lbl { font-size:9px; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:1.2px; margin-top:4px; }
+
+    /* ===== ANOMALI ===== */
+    .anom-empty { text-align:center; padding:48px; color:var(--text-dim); font-size:13px; }
+    .anom-empty-icon { font-size:36px; margin-bottom:12px; opacity:0.35; }
 
     /* ===== INFO BOX ===== */
     .info-box {
-      background: rgba(0,229,255,0.05);
-      border: 1px solid rgba(0,229,255,0.15);
-      border-radius: var(--radius-sm);
-      padding: 16px 20px;
-      font-size: 13px; color: var(--text-dim); line-height: 1.8; margin-top: 20px;
+      background:rgba(0,229,255,0.04); border:1px solid rgba(0,229,255,0.12);
+      border-radius:var(--rs); padding:16px 18px;
+      font-size:13px; color:var(--text-dim); line-height:1.8; margin-top:18px;
     }
-    .info-box strong { color: var(--cyan); }
-
-    /* ===== REKAP ===== */
-    .rekap-controls { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 22px; }
-
-    /* ===== SUMMARY ===== */
-    .sum-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 12px; margin-bottom: 20px; }
-    .sum-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm); padding: 16px; text-align: center;
-    }
-    .sum-val { font-family: 'Space Mono', monospace; font-size: 24px; font-weight: 700; color: #fff; }
-    .sum-lbl { font-size: 9px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1.2px; margin-top: 4px; }
+    .info-box strong { color:var(--cyan); }
 
     /* ===== TOAST ===== */
-    #toast {
-      position: fixed; bottom: 26px; right: 26px; z-index: 9999;
-      display: none; padding: 13px 20px;
-      border-radius: var(--radius-sm);
-      font-size: 13px; font-weight: 600;
-      animation: slideIn .25s ease;
-      max-width: 340px;
-      backdrop-filter: blur(16px);
-      align-items: center; gap: 9px;
+    #toast-container { position:fixed; bottom:22px; right:22px; z-index:9999; display:flex; flex-direction:column; gap:8px; }
+    .toast-item {
+      min-width:240px; max-width:340px; padding:12px 18px;
+      border-radius:var(--rs); font-size:13px; font-weight:600;
+      display:flex; align-items:center; gap:9px;
+      backdrop-filter:blur(20px); animation:toastIn .25s ease;
     }
-    #toast.success {
-      background: rgba(34,197,94,0.15); color: #4ade80;
-      border: 1px solid rgba(34,197,94,0.3);
-      box-shadow: 0 0 30px rgba(34,197,94,0.15);
-    }
-    #toast.error {
-      background: rgba(244,63,94,0.15); color: #fb7185;
-      border: 1px solid rgba(244,63,94,0.3);
-      box-shadow: 0 0 30px rgba(244,63,94,0.15);
-    }
-    @keyframes slideIn { from{opacity:0;transform:translateY(10px);} to{opacity:1;transform:translateY(0);} }
+    @keyframes toastIn { from{opacity:0;transform:translateY(12px);} to{opacity:1;transform:translateY(0);} }
+    .toast-success { background:rgba(34,197,94,0.13); color:#4ade80; border:1px solid rgba(34,197,94,0.25); box-shadow:0 0 28px rgba(34,197,94,0.12); }
+    .toast-error   { background:rgba(244,63,94,0.13);  color:#fb7185; border:1px solid rgba(244,63,94,0.25);  box-shadow:0 0 28px rgba(244,63,94,0.12); }
+    .toast-info    { background:rgba(59,130,246,0.13); color:#93c5fd; border:1px solid rgba(59,130,246,0.25); box-shadow:0 0 28px rgba(59,130,246,0.12); }
+    .toast-warn    { background:rgba(245,158,11,0.13); color:#fbbf24; border:1px solid rgba(245,158,11,0.25); box-shadow:0 0 28px rgba(245,158,11,0.12); }
 
-    /* ===== NO DATA ===== */
-    .no-data { text-align: center; padding: 48px 20px; color: var(--text-dim); font-size: 13px; }
-    .no-data-icon { font-size: 34px; margin-bottom: 12px; opacity: 0.4; }
-
-    /* ===== SIG THUMB ===== */
-    .sig-thumb { max-height: 36px; border-radius: 4px; filter: invert(1); }
+    /* ===== MODAL ===== */
+    .modal-overlay {
+      position:fixed; inset:0; background:rgba(0,0,0,0.75);
+      backdrop-filter:blur(8px); z-index:500;
+      display:none; align-items:center; justify-content:center; padding:16px;
+    }
+    .modal-overlay.open { display:flex; animation:fadeIn .22s ease; }
+    @keyframes fadeIn { from{opacity:0;} to{opacity:1;} }
+    .modal-box {
+      background:var(--bg2); border:1px solid var(--border2);
+      border-radius:18px; width:100%; max-width:520px;
+      max-height:90vh; overflow-y:auto; box-shadow:0 40px 80px rgba(0,0,0,0.5);
+      animation:modalUp .25s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .modal-sm { max-width:380px; }
+    @keyframes modalUp { from{opacity:0;transform:translateY(24px) scale(0.97);} to{opacity:1;transform:translateY(0) scale(1);} }
+    .modal-hdr { padding:20px 22px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+    .modal-hdr h3 { font-family:'Syne',sans-serif; font-size:16px; font-weight:800; color:#fff; }
+    .modal-body { padding:20px 22px; }
+    .modal-foot { padding:16px 22px; border-top:1px solid var(--border); display:flex; gap:10px; justify-content:flex-end; }
+    .modal-close { background:none; border:none; color:var(--text-dim); cursor:pointer; padding:4px; font-size:18px; line-height:1; transition:color .2s; }
+    .modal-close:hover { color:var(--text); }
 
     /* ===== SCROLLBAR ===== */
-    ::-webkit-scrollbar { width: 5px; height: 5px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 99px; }
+    ::-webkit-scrollbar { width:4px; height:4px; }
+    ::-webkit-scrollbar-track { background:transparent; }
+    ::-webkit-scrollbar-thumb { background:var(--border2); border-radius:99px; }
+
+    /* ===== NO DATA ===== */
+    .no-data { text-align:center; padding:40px 20px; color:var(--text-dim); font-size:13px; }
+    .no-data-icon { font-size:32px; margin-bottom:10px; opacity:0.35; }
+
+    /* ===== SIG THUMB ===== */
+    .sig-thumb { max-height:34px; border-radius:4px; filter:invert(1); }
+
+    /* ===== PER-RUANGAN CHART GRID ===== */
+    .room-charts-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:16px; }
+    .room-chart-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r); padding:18px; }
+    .room-chart-title { font-size:10px; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:1.5px; margin-bottom:14px; }
+
+    /* ===== ANOMALI SEVERITY BAR ===== */
+    .severity-bar { display:flex; gap:4px; margin-bottom:16px; flex-wrap:wrap; }
+    .sev-tag { padding:4px 12px; border-radius:99px; font-size:10px; font-weight:700; cursor:pointer; transition:all .2s; border:1px solid transparent; }
+    .sev-all  { background:var(--surface2); color:var(--text); border-color:var(--border2); }
+    .sev-all.active, .sev-all:hover  { background:var(--surface3); border-color:var(--border3); }
+    .sev-danger { background:var(--red-dim); color:#fb7185; border-color:rgba(244,63,94,0.22); }
+    .sev-danger.active, .sev-danger:hover { background:rgba(244,63,94,0.2); }
+    .sev-warn  { background:var(--amber-dim); color:#fbbf24; border-color:rgba(245,158,11,0.22); }
+    .sev-warn.active, .sev-warn:hover { background:rgba(245,158,11,0.2); }
+
+    /* ===== LOAD MORE ===== */
+    .load-more-wrap { text-align:center; padding:16px 0 0; }
 
     /* ===== RESPONSIVE ===== */
-    @media (max-width: 768px) {
-      header, nav { padding-left: 14px; padding-right: 14px; }
-      main { padding: 18px 14px; }
-      .stats-grid { grid-template-columns: repeat(2, 1fr); }
-      .brand p { display: none; }
+    @media (max-width:768px) {
+      header, nav { padding-left:14px; padding-right:14px; }
+      main { padding:14px; }
+      .stats-grid { grid-template-columns:repeat(2,1fr); }
+      .brand-sub { display:none; }
+      .hdr-right .ar-badge { display:none; }
     }
-    @media (max-width: 480px) {
-      .stats-grid { grid-template-columns: repeat(2, 1fr); }
-      .st-val { font-size: 26px; }
+    @media (max-width:480px) {
+      .st-val { font-size:26px; }
+      .stats-grid { grid-template-columns:repeat(2,1fr); }
     }
+
+    /* ===== PETUGAS STATS ===== */
+    .petugas-row { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); }
+    .petugas-row:last-child { border-bottom:none; }
+    .petugas-name { font-size:12px; font-weight:600; color:var(--text); flex:1; }
+    .petugas-bar-wrap { width:120px; height:6px; background:var(--border); border-radius:99px; overflow:hidden; }
+    .petugas-bar-fill { height:100%; background:linear-gradient(90deg,var(--blue),var(--cyan)); border-radius:99px; transition:width .6s ease; }
+    .petugas-count { font-family:'DM Mono',monospace; font-size:11px; color:var(--text-dim); width:30px; text-align:right; }
   </style>
 </head>
 <body>
 
 <div id="loadingOverlay">
-  <div class="load-logo">🌡️</div>
-  <div class="load-text">Menghubungkan Database...</div>
-  <div class="load-bar"><div class="load-bar-fill"></div></div>
+  <div class="load-icon">🌡️</div>
+  <div class="load-label">Memuat Sistem...</div>
+  <div class="load-track"><div class="load-fill"></div></div>
 </div>
 
-<div id="toast" style="display:none"></div>
+<div id="toast-container"></div>
 
+<!-- MODAL EDIT -->
+<div id="modalEdit" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-hdr">
+      <h3>✏️ Edit Data</h3>
+      <button class="modal-close" onclick="closeModal('modalEdit')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid" style="margin-bottom:14px">
+        <div class="form-group">
+          <label>Tanggal</label>
+          <input type="date" class="form-control" id="eTanggal"/>
+        </div>
+        <div class="form-group">
+          <label>Waktu</label>
+          <input type="time" class="form-control" id="eWaktu"/>
+        </div>
+        <div class="form-group">
+          <label>Ruangan</label>
+          <select class="form-control" id="eRuangan">
+            <option>ADM RADIOLOGI</option><option>RUANG USG</option><option>RUANG MRI</option>
+            <option>RUANG RONTGEN 1</option><option>RUANG RONTGEN 2</option>
+            <option>RUANG CT SCAN</option><option>RUANG PANORAMIC</option><option>RUANG RONTGEN MCU</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Petugas</label>
+          <select class="form-control" id="ePetugas">
+            <option>Ino Hadiwinata, A.Md.Rad</option><option>Lalan Permana Herlambang, A.Md.Rad</option>
+            <option>Feby Fardianto, A.Md.Rad</option><option>Elis Mandalasari, A.Md.Rad</option>
+            <option>Argo Nur Pujianto</option><option>Tikha Kania, A.Md.Rad</option>
+            <option>Ipu Yoga Pradetza, A.Md.Rad</option><option>Sri Cahyati, A.Md.Rad</option>
+            <option>Opan Sopandi, A.Md.Rad</option><option>Mohamad Vinggih Hernanda, A.Md.Rad</option>
+            <option>Fahmi Puja Ashri, A.Md.Rad</option><option>Gilang Nurgianti Fadilah, A.Md.Rad</option>
+            <option>Ardi Pratama Oktafiansyah, A.Md.Rad</option><option>Zhafira Nur Hasanah, A.Md.Rad</option>
+            <option>Dwi Alfi Pramesti, A.Md.Rad</option><option>Rita Riana, A.Md.Rad</option>
+            <option>Muhammad Rizky Maulana, A.Md.Kes</option><option>Muhammad Rafi Azhar, A.Md.Kes</option>
+            <option>Dias Riyandi, A.Md.Kes</option><option>Mochamad Taufik H, A.Md.Kes</option>
+            <option>Arief Maulana, A.Md.Kes</option><option>Salsa Dea Charira, A.Md.Kes</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-grid" style="margin-bottom:14px">
+        <div class="form-group">
+          <label>Suhu (°C)</label>
+          <input type="number" class="form-control" id="eSuhu" step="0.1" min="10" max="40" oninput="updateEditStatus()"/>
+          <span id="eSuhuStatus" style="font-size:11px;font-weight:700;margin-top:4px;display:block;"></span>
+        </div>
+        <div class="form-group">
+          <label>Kelembaban (%)</label>
+          <input type="number" class="form-control" id="eHum" step="1" min="0" max="100" oninput="updateEditStatus()"/>
+          <span id="eHumStatus" style="font-size:11px;font-weight:700;margin-top:4px;display:block;"></span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Catatan</label>
+        <textarea class="form-control" id="eCatatan" rows="2" style="resize:none"></textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modalEdit')">Batal</button>
+      <button class="btn btn-primary btn-sm" onclick="saveEdit()">💾 Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL HAPUS -->
+<div id="modalHapus" class="modal-overlay">
+  <div class="modal-box modal-sm">
+    <div class="modal-hdr">
+      <h3>🗑️ Konfirmasi Hapus</h3>
+      <button class="modal-close" onclick="closeModal('modalHapus')">✕</button>
+    </div>
+    <div class="modal-body" style="text-align:center;padding:28px 22px;">
+      <div style="font-size:40px;margin-bottom:12px;">⚠️</div>
+      <p style="color:var(--text);font-size:14px;font-weight:600;margin-bottom:8px;">Hapus data ini?</p>
+      <p id="hapusDesc" style="color:var(--text-dim);font-size:12px;">Data akan dihapus permanen.</p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modalHapus')">Batal</button>
+      <button class="btn btn-danger btn-sm" onclick="doHapus()">🗑️ Hapus</button>
+    </div>
+  </div>
+</div>
+
+<!-- HEADER -->
 <header>
   <div class="hdr-left">
-    <div class="logo-mark">🌡️</div>
-    <div class="brand">
-      <h1>Monitoring Suhu &amp; Kelembaban</h1>
-      <p>Instalasi Radiologi — RS Mitra Plumbon</p>
+    <div class="logo">🌡️</div>
+    <div>
+      <div class="brand-name">Monitoring Suhu & Kelembaban <span style="color:var(--cyan);font-size:11px;vertical-align:middle;font-weight:700;">v2</span></div>
+      <div class="brand-sub">Instalasi Radiologi — RS Mitra Plumbon</div>
     </div>
   </div>
   <div class="hdr-right">
-    <div class="live-pill"><div class="live-dot"></div>LIVE</div>
-    <div class="clock-box" id="clock">--:--:--</div>
+    <div class="ar-badge" onclick="toggleAutoRefresh()" id="arBadge" title="Auto-refresh tiap 5 menit">
+      <div class="ar-dot" id="arDot"></div>
+      <span id="arLabel">AUTO REFRESH</span>
+    </div>
+    <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+    <div class="clock" id="clock">--:--:--</div>
   </div>
 </header>
 
+<!-- TAB NAV -->
 <nav>
-  <button class="tab-btn active" onclick="switchTab('dashboard')">📊 Dashboard</button>
-  <button class="tab-btn" onclick="switchTab('input')">✏️ Input Data</button>
-  <button class="tab-btn" onclick="switchTab('rekap-harian')">📅 Rekap Harian</button>
-  <button class="tab-btn" onclick="switchTab('rekap-bulanan')">📆 Rekap Bulanan</button>
-  <button class="tab-btn" onclick="switchTab('rekap-triwulan')">🗓️ Rekap Triwulan</button>
-  <button class="tab-btn" onclick="switchTab('rekap-tahunan')">📋 Rekap Tahunan</button>
+  <button class="tab-btn active" onclick="switchTab('dashboard',this)">📊 Dashboard</button>
+  <button class="tab-btn" onclick="switchTab('input',this)">✏️ Input Data</button>
+  <button class="tab-btn" onclick="switchTab('anomali',this)">🚨 Anomali <span class="tab-badge" id="anom-badge" style="display:none">0</span></button>
+  <button class="tab-btn" onclick="switchTab('rekap-harian',this)">📅 Rekap Harian</button>
+  <button class="tab-btn" onclick="switchTab('rekap-bulanan',this)">📆 Rekap Bulanan</button>
+  <button class="tab-btn" onclick="switchTab('rekap-triwulan',this)">🗓️ Rekap Triwulan</button>
+  <button class="tab-btn" onclick="switchTab('rekap-tahunan',this)">📋 Rekap Tahunan</button>
+  <button class="tab-btn" onclick="switchTab('grafik-ruangan',this)">📈 Grafik Ruangan</button>
+  <button class="tab-btn" onclick="switchTab('statistik',this)">🏅 Statistik</button>
 </nav>
 
 <main>
 
-  <!-- DASHBOARD -->
+  <!-- ===== DASHBOARD ===== -->
   <div id="tab-dashboard" class="tab-content active">
     <div class="pg-hdr">
-      <h2>Dashboard Monitoring</h2>
-      <p>Pemantauan kondisi lingkungan ruangan radiologi secara real-time</p>
+      <div class="pg-hdr-left">
+        <h2>Dashboard Monitoring</h2>
+        <p>Pemantauan kondisi lingkungan ruangan radiologi secara real-time</p>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="doRefresh()">🔄 Refresh</button>
     </div>
+
     <div class="stats-grid">
       <div class="stat-card sc-cyan">
         <div class="st-lbl">Total Data</div>
@@ -555,7 +666,7 @@
       <div class="stat-card sc-teal">
         <div class="st-lbl">Rata-rata Kelembaban</div>
         <div class="st-val" id="st-hum">–</div>
-        <div class="st-unit">% RH</div>
+        <div class="st-unit">% RH hari ini</div>
       </div>
       <div class="stat-card sc-green">
         <div class="st-lbl">Status Normal</div>
@@ -567,11 +678,27 @@
         <div class="st-val" id="st-warn">–</div>
         <div class="st-unit">Perlu tindak lanjut</div>
       </div>
+      <div class="stat-card sc-red">
+        <div class="st-lbl">Anomali Total</div>
+        <div class="st-val" id="st-anom">–</div>
+        <div class="st-unit">Sepanjang waktu</div>
+      </div>
     </div>
+
     <div class="two-col">
       <div class="card">
         <div class="card-hdr">
-          <div class="card-title"><div class="ci ci-teal">🏥</div>Kondisi Ruangan Saat Ini</div>
+          <div class="card-title"><div class="ci ci-teal">🏥</div>Kondisi Ruangan Hari Ini</div>
+          <div class="filter-row" style="margin-bottom:0">
+            <div class="form-group" style="min-width:0">
+              <select class="form-control" id="dashRuanganFilter" style="font-size:11px;padding:5px 10px" onchange="refreshDashboard()">
+                <option value="">Semua Ruangan</option>
+                <option>ADM RADIOLOGI</option><option>RUANG USG</option><option>RUANG MRI</option>
+                <option>RUANG RONTGEN 1</option><option>RUANG RONTGEN 2</option>
+                <option>RUANG CT SCAN</option><option>RUANG PANORAMIC</option><option>RUANG RONTGEN MCU</option>
+              </select>
+            </div>
+          </div>
         </div>
         <div class="gauges-grid" id="gaugesGrid">
           <div class="no-data" style="grid-column:1/-1"><div class="no-data-icon">📭</div>Belum ada data hari ini</div>
@@ -584,27 +711,50 @@
         <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
       </div>
     </div>
+
     <div class="card">
       <div class="card-hdr">
         <div class="card-title"><div class="ci ci-blue">🕓</div>Data Terbaru</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <select class="form-control" id="dashLatestRuangan" style="font-size:11px;padding:5px 10px;width:auto" onchange="renderLatest()">
+            <option value="">Semua Ruangan</option>
+            <option>ADM RADIOLOGI</option><option>RUANG USG</option><option>RUANG MRI</option>
+            <option>RUANG RONTGEN 1</option><option>RUANG RONTGEN 2</option>
+            <option>RUANG CT SCAN</option><option>RUANG PANORAMIC</option><option>RUANG RONTGEN MCU</option>
+          </select>
+          <select class="form-control" id="dashLatestPetugas" style="font-size:11px;padding:5px 10px;width:auto" onchange="renderLatest()">
+            <option value="">Semua Petugas</option>
+            <option>Ino Hadiwinata, A.Md.Rad</option><option>Lalan Permana Herlambang, A.Md.Rad</option>
+            <option>Feby Fardianto, A.Md.Rad</option><option>Elis Mandalasari, A.Md.Rad</option>
+            <option>Argo Nur Pujianto</option><option>Tikha Kania, A.Md.Rad</option>
+            <option>Ipu Yoga Pradetza, A.Md.Rad</option><option>Sri Cahyati, A.Md.Rad</option>
+            <option>Opan Sopandi, A.Md.Rad</option><option>Mohamad Vinggih Hernanda, A.Md.Rad</option>
+            <option>Fahmi Puja Ashri, A.Md.Rad</option><option>Gilang Nurgianti Fadilah, A.Md.Rad</option>
+          </select>
+        </div>
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Tanggal</th><th>Ruangan</th><th>Suhu (°C)</th><th>Kelembaban (%)</th><th>Petugas</th><th>Status Suhu</th><th>Status RH</th></tr></thead>
-          <tbody id="latestTbody"><tr><td colspan="7"><div class="no-data">Memuat data...</div></td></tr></tbody>
+          <thead><tr><th>Tanggal</th><th>Waktu</th><th>Ruangan</th><th>Suhu (°C)</th><th>RH (%)</th><th>Petugas</th><th>Status Suhu</th><th>Status RH</th><th>Aksi</th></tr></thead>
+          <tbody id="latestTbody"><tr><td colspan="9"><div class="no-data">Memuat data...</div></td></tr></tbody>
         </table>
+      </div>
+      <div class="load-more-wrap">
+        <button class="btn btn-ghost btn-xs" id="loadMoreBtn" onclick="loadMore()" style="display:none">Muat Lebih Banyak ↓</button>
       </div>
     </div>
   </div>
 
-  <!-- INPUT DATA -->
+  <!-- ===== INPUT DATA ===== -->
   <div id="tab-input" class="tab-content">
     <div class="pg-hdr">
-      <h2>Input Data Monitoring</h2>
-      <p>Catat pengukuran suhu dan kelembaban ruangan radiologi</p>
+      <div class="pg-hdr-left">
+        <h2>Input Data Monitoring</h2>
+        <p>Catat pengukuran suhu dan kelembaban ruangan radiologi</p>
+      </div>
     </div>
     <div class="card">
-      <div class="card-title" style="margin-bottom:20px"><div class="ci ci-cyan">📋</div>Informasi Pengisian</div>
+      <div class="card-title" style="margin-bottom:18px"><div class="ci ci-cyan">📋</div>Informasi Pengisian</div>
       <div class="form-grid">
         <div class="form-group">
           <label>Tanggal Pengisian</label>
@@ -666,7 +816,7 @@
         <div class="reading-card rc-text">
           <div class="rc-icon">📝</div>
           <div class="rc-lbl">Catatan (Opsional)</div>
-          <textarea id="inpCatatan" placeholder="Catatan kondisi abnormal atau informasi tambahan..."></textarea>
+          <textarea id="inpCatatan" placeholder="Catatan kondisi abnormal..."></textarea>
         </div>
       </div>
       <div class="sec-div">Tanda Tangan Petugas</div>
@@ -677,7 +827,7 @@
           <div class="sig-ph" id="sigLabel">✍️ Ketuk atau geser untuk tanda tangan</div>
         </div>
         <div class="sig-foot">
-          <button class="btn btn-danger-xs" onclick="clearSig()">✕ Hapus TTD</button>
+          <button class="btn btn-danger btn-xs" onclick="clearSig()">✕ Hapus TTD</button>
         </div>
       </div>
       <div class="divider"></div>
@@ -693,123 +843,272 @@
     </div>
   </div>
 
-  <!-- REKAP HARIAN -->
-  <div id="tab-rekap-harian" class="tab-content">
-    <div class="pg-hdr"><h2>Rekap Data Harian</h2><p>Tampilkan dan ekspor data monitoring per tanggal</p></div>
-    <div class="card">
-      <div class="rekap-controls">
-        <div class="form-group"><label>Pilih Tanggal</label><input type="date" class="form-control" id="filterHarian" style="width:200px"/></div>
-        <button class="btn btn-primary" onclick="loadHarian()">🔍 Tampilkan</button>
-        <button class="btn btn-success" onclick="exportExcel('harian')">📥 Export Excel</button>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>No</th><th>Waktu</th><th>Ruangan</th><th>Suhu (°C)</th><th>Kelembaban (%)</th><th>Status Suhu</th><th>Status RH</th><th>Petugas</th><th>Catatan</th><th>TTD</th></tr></thead>
-          <tbody id="rekapHarianBody"><tr><td colspan="10"><div class="no-data"><div class="no-data-icon">📅</div>Pilih tanggal untuk melihat data</div></td></tr></tbody>
-        </table>
+  <!-- ===== ANOMALI ===== -->
+  <div id="tab-anomali" class="tab-content">
+    <div class="pg-hdr">
+      <div class="pg-hdr-left">
+        <h2>Data Anomali</h2>
+        <p>Semua pembacaan di luar batas normal suhu atau kelembaban</p>
       </div>
     </div>
-  </div>
-
-  <!-- REKAP BULANAN -->
-  <div id="tab-rekap-bulanan" class="tab-content">
-    <div class="pg-hdr"><h2>Rekap Data Bulanan</h2><p>Tampilkan dan ekspor data monitoring per bulan</p></div>
     <div class="card">
-      <div class="rekap-controls">
+      <div class="severity-bar" id="anomSevBar">
+        <span class="sev-tag sev-all active" onclick="filterAnom('all',this)">Semua</span>
+        <span class="sev-tag sev-danger" onclick="filterAnom('danger',this)">🔴 Berbahaya</span>
+        <span class="sev-tag sev-warn" onclick="filterAnom('warn',this)">🟡 Peringatan</span>
+      </div>
+      <div class="filter-row" style="margin-bottom:14px">
         <div class="form-group">
-          <label>Bulan</label>
-          <select class="form-control" id="filterBulan" style="width:155px">
-            <option value="01">Januari</option><option value="02">Februari</option>
-            <option value="03">Maret</option><option value="04">April</option>
-            <option value="05">Mei</option><option value="06">Juni</option>
-            <option value="07">Juli</option><option value="08">Agustus</option>
-            <option value="09">September</option><option value="10">Oktober</option>
-            <option value="11">November</option><option value="12">Desember</option>
+          <label>Filter Ruangan</label>
+          <select class="form-control" id="anomRuangan" onchange="renderAnomali()">
+            <option value="">Semua Ruangan</option>
+            <option>ADM RADIOLOGI</option><option>RUANG USG</option><option>RUANG MRI</option>
+            <option>RUANG RONTGEN 1</option><option>RUANG RONTGEN 2</option>
+            <option>RUANG CT SCAN</option><option>RUANG PANORAMIC</option><option>RUANG RONTGEN MCU</option>
           </select>
         </div>
-        <div class="form-group"><label>Tahun</label><input type="number" class="form-control" id="filterTahunBulan" style="width:115px" min="2020" max="2099"/></div>
-        <button class="btn btn-primary" onclick="loadBulanan()">🔍 Tampilkan</button>
-        <button class="btn btn-success" onclick="exportExcel('bulanan')">📥 Export Excel</button>
+        <div class="form-group">
+          <label>Filter Petugas</label>
+          <select class="form-control" id="anomPetugas" onchange="renderAnomali()">
+            <option value="">Semua Petugas</option>
+            <option>Ino Hadiwinata, A.Md.Rad</option><option>Lalan Permana Herlambang, A.Md.Rad</option>
+            <option>Feby Fardianto, A.Md.Rad</option><option>Elis Mandalasari, A.Md.Rad</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Dari Tanggal</label>
+          <input type="date" class="form-control" id="anomFrom" onchange="renderAnomali()"/>
+        </div>
+        <div class="form-group">
+          <label>Sampai Tanggal</label>
+          <input type="date" class="form-control" id="anomTo" onchange="renderAnomali()"/>
+        </div>
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>No</th><th>Tanggal</th><th>Waktu</th><th>Ruangan</th><th>Suhu (°C)</th><th>Kelembaban (%)</th><th>Status</th><th>Petugas</th></tr></thead>
-          <tbody id="rekapBulananBody"><tr><td colspan="8"><div class="no-data"><div class="no-data-icon">📆</div>Pilih bulan untuk melihat data</div></td></tr></tbody>
+          <thead><tr><th>Tanggal</th><th>Waktu</th><th>Ruangan</th><th>Suhu</th><th>RH</th><th>Status Suhu</th><th>Status RH</th><th>Petugas</th><th>Catatan</th><th>Aksi</th></tr></thead>
+          <tbody id="anomTbody"><tr><td colspan="10"><div class="no-data"><div class="no-data-icon">✅</div>Belum ada data anomali</div></td></tr></tbody>
         </table>
       </div>
     </div>
   </div>
 
-  <!-- REKAP TRIWULAN -->
-  <div id="tab-rekap-triwulan" class="tab-content">
-    <div class="pg-hdr"><h2>Rekap Data Triwulan</h2><p>Tampilkan dan ekspor data monitoring per triwulan</p></div>
+  <!-- ===== REKAP HARIAN ===== -->
+  <div id="tab-rekap-harian" class="tab-content">
+    <div class="pg-hdr"><div class="pg-hdr-left"><h2>Rekap Data Harian</h2><p>Tampilkan dan ekspor data monitoring per tanggal</p></div></div>
     <div class="card">
       <div class="rekap-controls">
-        <div class="form-group">
-          <label>Triwulan</label>
-          <select class="form-control" id="filterTriwulan" style="width:195px">
+        <div class="form-group"><label>Pilih Tanggal</label><input type="date" class="form-control" id="filterHarian"/></div>
+        <div class="form-group"><label>Filter Ruangan</label>
+          <select class="form-control" id="filterHarianRuangan">
+            <option value="">Semua Ruangan</option>
+            <option>ADM RADIOLOGI</option><option>RUANG USG</option><option>RUANG MRI</option>
+            <option>RUANG RONTGEN 1</option><option>RUANG RONTGEN 2</option>
+            <option>RUANG CT SCAN</option><option>RUANG PANORAMIC</option><option>RUANG RONTGEN MCU</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Filter Petugas</label>
+          <select class="form-control" id="filterHarianPetugas">
+            <option value="">Semua Petugas</option>
+            <option>Ino Hadiwinata, A.Md.Rad</option><option>Lalan Permana Herlambang, A.Md.Rad</option>
+            <option>Feby Fardianto, A.Md.Rad</option><option>Elis Mandalasari, A.Md.Rad</option>
+            <option>Argo Nur Pujianto</option><option>Tikha Kania, A.Md.Rad</option>
+          </select>
+        </div>
+        <div class="btn-group" style="align-items:flex-end">
+          <button class="btn btn-primary btn-sm" onclick="loadHarian()">🔍 Tampilkan</button>
+          <button class="btn btn-success btn-sm" onclick="exportExcel('harian')">📥 Excel</button>
+          <button class="btn btn-amber btn-sm" onclick="printRekap()">🖨️ Cetak</button>
+        </div>
+      </div>
+      <div id="harianSummary" style="margin-bottom:16px"></div>
+      <div class="table-wrap" id="printArea">
+        <table>
+          <thead><tr><th>#</th><th>Waktu</th><th>Ruangan</th><th>Suhu (°C)</th><th>RH (%)</th><th>Status Suhu</th><th>Status RH</th><th>Petugas</th><th>Catatan</th><th>TTD</th><th>Aksi</th></tr></thead>
+          <tbody id="rekapHarianBody"><tr><td colspan="11"><div class="no-data">Pilih tanggal lalu klik Tampilkan</div></td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== REKAP BULANAN ===== -->
+  <div id="tab-rekap-bulanan" class="tab-content">
+    <div class="pg-hdr"><div class="pg-hdr-left"><h2>Rekap Data Bulanan</h2><p>Tampilkan dan ekspor data monitoring per bulan</p></div></div>
+    <div class="card">
+      <div class="rekap-controls">
+        <div class="form-group"><label>Bulan</label>
+          <select class="form-control" id="filterBulan">
+            <option value="01">Januari</option><option value="02">Februari</option><option value="03">Maret</option>
+            <option value="04">April</option><option value="05">Mei</option><option value="06">Juni</option>
+            <option value="07">Juli</option><option value="08">Agustus</option><option value="09">September</option>
+            <option value="10">Oktober</option><option value="11">November</option><option value="12">Desember</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Tahun</label><input type="number" class="form-control" id="filterTahunBulan" min="2020" max="2099" style="width:110px"/></div>
+        <div class="form-group"><label>Filter Ruangan</label>
+          <select class="form-control" id="filterBulananRuangan">
+            <option value="">Semua Ruangan</option>
+            <option>ADM RADIOLOGI</option><option>RUANG USG</option><option>RUANG MRI</option>
+            <option>RUANG RONTGEN 1</option><option>RUANG RONTGEN 2</option>
+            <option>RUANG CT SCAN</option><option>RUANG PANORAMIC</option><option>RUANG RONTGEN MCU</option>
+          </select>
+        </div>
+        <div class="btn-group" style="align-items:flex-end">
+          <button class="btn btn-primary btn-sm" onclick="loadBulanan()">🔍 Tampilkan</button>
+          <button class="btn btn-success btn-sm" onclick="exportExcel('bulanan')">📥 Excel</button>
+          <button class="btn btn-amber btn-sm" onclick="printRekap()">🖨️ Cetak</button>
+        </div>
+      </div>
+      <div id="bulananSummary" style="margin-bottom:16px"></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>Tanggal</th><th>Waktu</th><th>Ruangan</th><th>Suhu (°C)</th><th>RH (%)</th><th>Overall</th><th>Petugas</th><th>Aksi</th></tr></thead>
+          <tbody id="rekapBulananBody"><tr><td colspan="9"><div class="no-data">Pilih bulan lalu klik Tampilkan</div></td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== REKAP TRIWULAN ===== -->
+  <div id="tab-rekap-triwulan" class="tab-content">
+    <div class="pg-hdr"><div class="pg-hdr-left"><h2>Rekap Triwulan</h2><p>Data monitoring per tiga bulan</p></div></div>
+    <div class="card">
+      <div class="rekap-controls">
+        <div class="form-group"><label>Triwulan</label>
+          <select class="form-control" id="filterTriwulan">
             <option value="1">TW I (Jan–Mar)</option><option value="2">TW II (Apr–Jun)</option>
             <option value="3">TW III (Jul–Sep)</option><option value="4">TW IV (Okt–Des)</option>
           </select>
         </div>
-        <div class="form-group"><label>Tahun</label><input type="number" class="form-control" id="filterTahunTW" style="width:115px" min="2020" max="2099"/></div>
-        <button class="btn btn-primary" onclick="loadTriwulan()">🔍 Tampilkan</button>
-        <button class="btn btn-success" onclick="exportExcel('triwulan')">📥 Export Excel</button>
+        <div class="form-group"><label>Tahun</label><input type="number" class="form-control" id="filterTahunTW" min="2020" max="2099" style="width:110px"/></div>
+        <div class="form-group"><label>Filter Ruangan</label>
+          <select class="form-control" id="filterTWRuangan">
+            <option value="">Semua Ruangan</option>
+            <option>ADM RADIOLOGI</option><option>RUANG USG</option><option>RUANG MRI</option>
+            <option>RUANG RONTGEN 1</option><option>RUANG RONTGEN 2</option>
+            <option>RUANG CT SCAN</option><option>RUANG PANORAMIC</option><option>RUANG RONTGEN MCU</option>
+          </select>
+        </div>
+        <div class="btn-group" style="align-items:flex-end">
+          <button class="btn btn-primary btn-sm" onclick="loadTriwulan()">🔍 Tampilkan</button>
+          <button class="btn btn-success btn-sm" onclick="exportExcel('triwulan')">📥 Excel</button>
+          <button class="btn btn-amber btn-sm" onclick="printRekap()">🖨️ Cetak</button>
+        </div>
       </div>
+      <div id="triwulanSummary" style="margin-bottom:16px"></div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>No</th><th>Tanggal</th><th>Ruangan</th><th>Suhu (°C)</th><th>Kelembaban (%)</th><th>Status</th><th>Petugas</th></tr></thead>
-          <tbody id="rekapTriwulanBody"><tr><td colspan="7"><div class="no-data"><div class="no-data-icon">🗓️</div>Pilih triwulan untuk melihat data</div></td></tr></tbody>
+          <thead><tr><th>#</th><th>Tanggal</th><th>Ruangan</th><th>Suhu (°C)</th><th>RH (%)</th><th>Overall</th><th>Petugas</th><th>Aksi</th></tr></thead>
+          <tbody id="rekapTriwulanBody"><tr><td colspan="8"><div class="no-data">Pilih triwulan lalu klik Tampilkan</div></td></tr></tbody>
         </table>
       </div>
     </div>
   </div>
 
-  <!-- REKAP TAHUNAN -->
+  <!-- ===== REKAP TAHUNAN ===== -->
   <div id="tab-rekap-tahunan" class="tab-content">
-    <div class="pg-hdr"><h2>Rekap Data Tahunan</h2><p>Rekapitulasi dan analisis data monitoring tahunan</p></div>
+    <div class="pg-hdr"><div class="pg-hdr-left"><h2>Rekap Tahunan</h2><p>Ringkasan data monitoring per tahun per ruangan</p></div></div>
     <div class="card">
       <div class="rekap-controls">
-        <div class="form-group"><label>Tahun</label><input type="number" class="form-control" id="filterTahun" style="width:115px" min="2020" max="2099"/></div>
-        <button class="btn btn-primary" onclick="loadTahunan()">🔍 Tampilkan</button>
-        <button class="btn btn-success" onclick="exportExcel('tahunan')">📥 Export Excel</button>
+        <div class="form-group"><label>Tahun</label><input type="number" class="form-control" id="filterTahun" min="2020" max="2099" style="width:110px"/></div>
+        <div class="btn-group" style="align-items:flex-end">
+          <button class="btn btn-primary btn-sm" onclick="loadTahunan()">🔍 Tampilkan</button>
+          <button class="btn btn-success btn-sm" onclick="exportExcel('tahunan')">📥 Excel</button>
+          <button class="btn btn-amber btn-sm" onclick="printRekap()">🖨️ Cetak</button>
+        </div>
       </div>
-      <div id="tahunanSummary" style="margin-bottom:18px"></div>
+      <div id="tahunanSummary" style="margin-bottom:16px"></div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>No</th><th>Bulan</th><th>Ruangan</th><th>Rata2 Suhu</th><th>Rata2 Hum</th><th>Jml Data</th><th>Normal</th><th>Tidak Normal</th></tr></thead>
-          <tbody id="rekapTahunanBody"><tr><td colspan="8"><div class="no-data"><div class="no-data-icon">📋</div>Pilih tahun untuk melihat data</div></td></tr></tbody>
+          <thead><tr><th>#</th><th>Bulan</th><th>Ruangan</th><th>Avg Suhu</th><th>Avg RH</th><th>Total Data</th><th>Normal</th><th>Abnormal</th></tr></thead>
+          <tbody id="rekapTahunanBody"><tr><td colspan="8"><div class="no-data">Pilih tahun lalu klik Tampilkan</div></td></tr></tbody>
         </table>
       </div>
+    </div>
+  </div>
+
+  <!-- ===== GRAFIK PER RUANGAN ===== -->
+  <div id="tab-grafik-ruangan" class="tab-content">
+    <div class="pg-hdr">
+      <div class="pg-hdr-left"><h2>Grafik Per Ruangan</h2><p>Tren suhu dan kelembaban masing-masing ruangan (7 hari)</p></div>
+    </div>
+    <div class="room-charts-grid" id="roomChartsGrid">
+      <div class="no-data" style="grid-column:1/-1"><div class="no-data-icon">📭</div>Memuat data grafik...</div>
+    </div>
+  </div>
+
+  <!-- ===== STATISTIK ===== -->
+  <div id="tab-statistik" class="tab-content">
+    <div class="pg-hdr"><div class="pg-hdr-left"><h2>Statistik & Analisis</h2><p>Performa ruangan dan kontribusi petugas</p></div></div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-hdr"><div class="card-title"><div class="ci ci-red">🏆</div>Ruangan Paling Sering Abnormal</div></div>
+        <div id="statsRuangan" class="no-data">Memuat...</div>
+      </div>
+      <div class="card">
+        <div class="card-hdr"><div class="card-title"><div class="ci ci-blue">👤</div>Aktivitas Petugas (Top 10)</div></div>
+        <div id="statsPetugas">
+          <div class="no-data">Memuat...</div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hdr"><div class="card-title"><div class="ci ci-cyan">📊</div>Distribusi Status Keseluruhan</div></div>
+      <div class="chart-wrap-tall"><canvas id="distribChart"></canvas></div>
     </div>
   </div>
 
 </main>
 
 <script>
+/* ============================================================
+   STATE & CONSTANTS
+============================================================ */
 let allData = [];
-let trendChartInstance = null;
+let trendChartInst = null;
+let distribChartInst = null;
+let roomChartInsts = {};
 let sigPainting = false;
 let hasSig = false;
-const sigCtx = document.getElementById('sigCanvas').getContext('2d');
+let latestPage = 1;
+const PAGE_SIZE = 20;
+let anomFilter = 'all';
+let editId = null;
+let hapusId = null;
+let autoRefreshTimer = null;
+let autoRefreshOn = false;
 
+const ROOMS = ['ADM RADIOLOGI','RUANG USG','RUANG MRI','RUANG RONTGEN 1','RUANG RONTGEN 2','RUANG CT SCAN','RUANG PANORAMIC','RUANG RONTGEN MCU'];
+
+/* ============================================================
+   INIT
+============================================================ */
 document.addEventListener('firebaseReady', async () => {
   document.getElementById('loadingOverlay').style.display = 'none';
-  initClock(); initSig(); setDefaults();
-  await loadAllData(); refreshDashboard();
+  initClock();
+  initSig();
+  setDefaults();
+  await loadAllData();
+  refreshDashboard();
+  renderAnomali();
+  buildRoomCharts();
+  buildStatistik();
 });
-setTimeout(() => { document.getElementById('loadingOverlay').style.display = 'none'; }, 5000);
+setTimeout(() => { document.getElementById('loadingOverlay').style.display = 'none'; }, 6000);
 
 function setDefaults() {
   const now = new Date();
-  document.getElementById('inpTanggal').value = now.toISOString().split('T')[0];
+  const today = now.toISOString().split('T')[0];
+  document.getElementById('inpTanggal').value = today;
   document.getElementById('inpWaktu').value = now.toTimeString().slice(0,5);
-  document.getElementById('filterHarian').value = now.toISOString().split('T')[0];
+  document.getElementById('filterHarian').value = today;
   document.getElementById('filterBulan').value = String(now.getMonth()+1).padStart(2,'0');
   document.getElementById('filterTahunBulan').value = now.getFullYear();
   document.getElementById('filterTahunTW').value = now.getFullYear();
   document.getElementById('filterTahun').value = now.getFullYear();
   document.getElementById('filterTriwulan').value = Math.ceil((now.getMonth()+1)/3);
+  document.getElementById('anomFrom').value = new Date(now.getFullYear(), now.getMonth()-1, 1).toISOString().split('T')[0];
+  document.getElementById('anomTo').value = today;
 }
 
 function initClock() {
@@ -817,62 +1116,590 @@ function initClock() {
   tick(); setInterval(tick, 1000);
 }
 
-function switchTab(id) {
+/* ============================================================
+   TAB SWITCHING
+============================================================ */
+function switchTab(id, el) {
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-'+id).classList.add('active');
-  event.target.classList.add('active');
+  if(el) el.classList.add('active');
+  if(id==='grafik-ruangan') buildRoomCharts();
+  if(id==='statistik') buildStatistik();
+  if(id==='anomali') renderAnomali();
 }
 
-function initSig() {
-  const canvas = document.getElementById('sigCanvas');
-  const label = document.getElementById('sigLabel');
-  sigCtx.strokeStyle = '#00e5ff';
-  function getPos(e) {
-    const r = canvas.getBoundingClientRect();
-    const sx = canvas.width/r.width, sy = canvas.height/r.height;
-    if (e.touches) return { x:(e.touches[0].clientX-r.left)*sx, y:(e.touches[0].clientY-r.top)*sy };
-    return { x:(e.clientX-r.left)*sx, y:(e.clientY-r.top)*sy };
+/* ============================================================
+   FIREBASE DATA
+============================================================ */
+async function loadAllData() {
+  if(!window._firebaseReady) return;
+  try {
+    const snap = await window._get(window._ref(window._db, 'monitoring'));
+    allData = [];
+    if(snap.exists()) { snap.forEach(c => { allData.push({id:c.key, ...c.val()}); }); }
+    allData.sort((a,b) => new Date(b.timestamp||0) - new Date(a.timestamp||0));
+  } catch(e) { showToast('Gagal memuat data: '+e.message,'error'); }
+}
+
+async function doRefresh() {
+  showToast('🔄 Memperbarui data...','info');
+  await loadAllData();
+  refreshDashboard();
+  renderAnomali();
+  buildRoomCharts();
+  buildStatistik();
+  showToast('✅ Data diperbarui!','success');
+}
+
+/* ============================================================
+   AUTO REFRESH
+============================================================ */
+function toggleAutoRefresh() {
+  autoRefreshOn = !autoRefreshOn;
+  const dot = document.getElementById('arDot');
+  const lbl = document.getElementById('arLabel');
+  if(autoRefreshOn) {
+    dot.classList.add('spinning');
+    lbl.textContent = 'ON · 5MIN';
+    autoRefreshTimer = setInterval(doRefresh, 5 * 60 * 1000);
+    showToast('Auto-refresh aktif (5 menit)','info');
+  } else {
+    dot.classList.remove('spinning');
+    lbl.textContent = 'AUTO REFRESH';
+    clearInterval(autoRefreshTimer);
+    showToast('Auto-refresh dimatikan','info');
   }
-  function start(e) { e.preventDefault(); sigPainting=true; const p=getPos(e); sigCtx.beginPath(); sigCtx.moveTo(p.x,p.y); label.style.display='none'; hasSig=true; }
-  function draw(e) { e.preventDefault(); if(!sigPainting) return; const p=getPos(e); sigCtx.lineWidth=2.5; sigCtx.lineCap='round'; sigCtx.strokeStyle='#00e5ff'; sigCtx.lineTo(p.x,p.y); sigCtx.stroke(); sigCtx.beginPath(); sigCtx.moveTo(p.x,p.y); }
-  function stop() { sigPainting=false; sigCtx.beginPath(); }
-  canvas.addEventListener('mousedown',start); canvas.addEventListener('mousemove',draw); canvas.addEventListener('mouseup',stop); canvas.addEventListener('mouseleave',stop);
-  canvas.addEventListener('touchstart',start,{passive:false}); canvas.addEventListener('touchmove',draw,{passive:false}); canvas.addEventListener('touchend',stop);
-}
-function clearSig() {
-  sigCtx.clearRect(0,0,document.getElementById('sigCanvas').width,document.getElementById('sigCanvas').height);
-  document.getElementById('sigLabel').style.display='flex'; hasSig=false;
 }
 
+/* ============================================================
+   STATUS HELPERS
+============================================================ */
 function getSuhuStatus(v) {
-  if (v>=21&&v<=22) return {label:'IDEAL ✓',cls:'badge-ok',color:'status-ok'};
-  if (v>=20&&v<=24) return {label:'NORMAL ✓',cls:'badge-ok',color:'status-ok'};
-  if (v<20) return {label:'TERLALU DINGIN ⚠',cls:'badge-warn',color:'status-warn'};
-  return {label:'TERLALU PANAS ⚠',cls:'badge-danger',color:'status-danger'};
+  if(v>=21&&v<=22) return {label:'IDEAL ✓', cls:'badge-ok', color:'status-ok', sev:'ok'};
+  if(v>=20&&v<=24) return {label:'NORMAL ✓', cls:'badge-ok', color:'status-ok', sev:'ok'};
+  if(v<20) return {label:'TERLALU DINGIN ⚠', cls:'badge-warn', color:'status-warn', sev:'warn'};
+  return {label:'TERLALU PANAS ⚠', cls:'badge-danger', color:'status-danger', sev:'danger'};
 }
 function getHumStatus(v) {
-  if (v>=45&&v<=55) return {label:'IDEAL ✓',cls:'badge-ok',color:'status-ok'};
-  if (v>=40&&v<=60) return {label:'NORMAL ✓',cls:'badge-ok',color:'status-ok'};
-  if (v<40) return {label:'TERLALU KERING ⚠',cls:'badge-warn',color:'status-warn'};
-  return {label:'TERLALU LEMBAB ⚠',cls:'badge-danger',color:'status-danger'};
+  if(v>=45&&v<=55) return {label:'IDEAL ✓', cls:'badge-ok', color:'status-ok', sev:'ok'};
+  if(v>=40&&v<=60) return {label:'NORMAL ✓', cls:'badge-ok', color:'status-ok', sev:'ok'};
+  if(v<40) return {label:'TERLALU KERING ⚠', cls:'badge-warn', color:'status-warn', sev:'warn'};
+  return {label:'TERLALU LEMBAB ⚠', cls:'badge-danger', color:'status-danger', sev:'danger'};
 }
+function isAbnormal(d) {
+  return getSuhuStatus(d.suhu).sev!=='ok' || getHumStatus(d.humidity).sev!=='ok';
+}
+function getOverallSev(d) {
+  const ss = getSuhuStatus(d.suhu).sev;
+  const hs = getHumStatus(d.humidity).sev;
+  if(ss==='danger'||hs==='danger') return 'danger';
+  if(ss==='warn'||hs==='warn') return 'warn';
+  return 'ok';
+}
+
 function updateStatus() {
-  const s=parseFloat(document.getElementById('inpSuhu').value);
-  const h=parseFloat(document.getElementById('inpHumidity').value);
-  const sd=document.getElementById('suhuStatus'),hd=document.getElementById('humStatus');
+  const s = parseFloat(document.getElementById('inpSuhu').value);
+  const h = parseFloat(document.getElementById('inpHumidity').value);
+  const sd = document.getElementById('suhuStatus'), hd = document.getElementById('humStatus');
   if(!isNaN(s)){const st=getSuhuStatus(s);sd.textContent=st.label;sd.className='rc-status-lbl '+st.color;}else sd.textContent='';
   if(!isNaN(h)){const ht=getHumStatus(h);hd.textContent=ht.label;hd.className='rc-status-lbl '+ht.color;}else hd.textContent='';
 }
 
-async function loadAllData() {
-  if(!window._firebaseReady) return;
-  try {
-    const snap=await window._firebaseGet(window._firebaseRef(window._firebaseDB,'monitoring'));
-    allData=[];
-    if(snap.exists()){snap.forEach(c=>{allData.push({id:c.key,...c.val()});});allData.sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp));}
-  } catch(e){console.error(e);showToast('Gagal memuat data dari Firebase','error');}
+function updateEditStatus() {
+  const s = parseFloat(document.getElementById('eSuhu').value);
+  const h = parseFloat(document.getElementById('eHum').value);
+  const se = document.getElementById('eSuhuStatus'), he = document.getElementById('eHumStatus');
+  if(!isNaN(s)){const st=getSuhuStatus(s);se.textContent=st.label;se.className=st.color;}else se.textContent='';
+  if(!isNaN(h)){const ht=getHumStatus(h);he.textContent=ht.label;he.className=ht.color;}else he.textContent='';
 }
+
+/* ============================================================
+   DASHBOARD
+============================================================ */
+function refreshDashboard() {
+  const today = new Date().toISOString().split('T')[0];
+  const td = allData.filter(d => d.tanggal===today);
+  const roomFilter = document.getElementById('dashRuanganFilter')?.value || '';
+  const tdFiltered = roomFilter ? td.filter(d=>d.ruangan===roomFilter) : td;
+
+  document.getElementById('st-total').textContent = allData.length;
+  const anomCount = allData.filter(isAbnormal).length;
+  document.getElementById('st-anom').textContent = anomCount;
+
+  // Update anomali badge
+  const ab = document.getElementById('anom-badge');
+  if(anomCount>0){ab.textContent=anomCount;ab.style.display='';}else{ab.style.display='none';}
+
+  if(tdFiltered.length>0){
+    document.getElementById('st-suhu').textContent = (tdFiltered.reduce((a,d)=>a+d.suhu,0)/tdFiltered.length).toFixed(1);
+    document.getElementById('st-hum').textContent  = (tdFiltered.reduce((a,d)=>a+d.humidity,0)/tdFiltered.length).toFixed(1);
+    const ok = tdFiltered.filter(d=>getSuhuStatus(d.suhu).cls==='badge-ok'&&getHumStatus(d.humidity).cls==='badge-ok').length;
+    document.getElementById('st-ok').textContent   = ok;
+    document.getElementById('st-warn').textContent = tdFiltered.length - ok;
+  } else {
+    ['st-suhu','st-hum','st-ok','st-warn'].forEach(id=>document.getElementById(id).textContent='–');
+  }
+
+  // Gauges
+  const ge = document.getElementById('gaugesGrid');
+  const dataForGauge = roomFilter ? td.filter(d=>d.ruangan===roomFilter) : td;
+  if(!dataForGauge.length) {
+    ge.innerHTML='<div class="no-data" style="grid-column:1/-1"><div class="no-data-icon">📭</div>Belum ada data hari ini</div>';
+  } else {
+    const rl={};
+    dataForGauge.forEach(d=>{if(!rl[d.ruangan])rl[d.ruangan]=d;});
+    ge.innerHTML=Object.entries(rl).map(([room,d])=>{
+      const ss=getSuhuStatus(d.suhu),hs=getHumStatus(d.humidity);
+      const isOk=ss.cls==='badge-ok'&&hs.cls==='badge-ok';
+      const isDanger=ss.cls==='badge-danger'||hs.cls==='badge-danger';
+      const col=isOk?'#4ade80':isDanger?'#fb7185':'#fbbf24';
+      const bc=isOk?'rgba(34,197,94,.22)':isDanger?'rgba(244,63,94,.22)':'rgba(245,158,11,.22)';
+      return`<div class="gauge-card" style="border-color:${bc}">
+        <div class="g-room">${room}</div>
+        <div class="g-temp" style="color:${col}">${d.suhu}<span class="g-unit">°C</span></div>
+        <div class="g-hum">${d.humidity}% RH</div>
+        <div class="g-badge"><span class="badge ${ss.cls}">${ss.label}</span></div>
+      </div>`;
+    }).join('');
+  }
+
+  buildTrendChart();
+  renderLatest();
+}
+
+/* ============================================================
+   LATEST TABLE (with Load More + filters)
+============================================================ */
+function renderLatest() {
+  const ruanganF = document.getElementById('dashLatestRuangan')?.value || '';
+  const petugasF = document.getElementById('dashLatestPetugas')?.value || '';
+  let data = allData;
+  if(ruanganF) data = data.filter(d=>d.ruangan===ruanganF);
+  if(petugasF) data = data.filter(d=>d.petugas===petugasF);
+
+  const visible = data.slice(0, latestPage * PAGE_SIZE);
+  const tbody = document.getElementById('latestTbody');
+  if(!visible.length){
+    tbody.innerHTML='<tr><td colspan="9"><div class="no-data">Tidak ada data</div></td></tr>';
+    document.getElementById('loadMoreBtn').style.display='none';
+    return;
+  }
+  tbody.innerHTML = visible.map(d => {
+    const ss=getSuhuStatus(d.suhu),hs=getHumStatus(d.humidity);
+    return`<tr>
+      <td>${d.tanggal||'–'}</td><td style="font-family:'DM Mono',monospace;font-size:11px">${d.waktu||'–'}</td>
+      <td style="font-size:11px;white-space:nowrap">${d.ruangan}</td>
+      <td><span class="mono">${d.suhu}</span></td><td><span class="mono">${d.humidity}</span></td>
+      <td style="font-size:11px;color:var(--text-dim);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.petugas}</td>
+      <td><span class="badge ${ss.cls}">${ss.label}</span></td>
+      <td><span class="badge ${hs.cls}">${hs.label}</span></td>
+      <td>
+        <div style="display:flex;gap:5px">
+          <button class="btn btn-ghost btn-xs" onclick="openEdit('${d.id}')">✏️</button>
+          <button class="btn btn-danger btn-xs" onclick="openHapus('${d.id}','${d.tanggal} ${d.ruangan}')">🗑️</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+  document.getElementById('loadMoreBtn').style.display = data.length > visible.length ? '' : 'none';
+}
+
+function loadMore() { latestPage++; renderLatest(); }
+
+/* ============================================================
+   TREND CHART (7 HARI)
+============================================================ */
+function buildTrendChart() {
+  const days=[];for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);days.push(d.toISOString().split('T')[0]);}
+  const avgS=days.map(day=>{const dd=allData.filter(d=>d.tanggal===day);return dd.length?+(dd.reduce((a,d)=>a+d.suhu,0)/dd.length).toFixed(1):null;});
+  const avgH=days.map(day=>{const dd=allData.filter(d=>d.tanggal===day);return dd.length?+(dd.reduce((a,d)=>a+d.humidity,0)/dd.length).toFixed(1):null;});
+  const labels=days.map(d=>{const dd=new Date(d);return dd.toLocaleDateString('id-ID',{day:'2-digit',month:'short'});});
+  if(trendChartInst)trendChartInst.destroy();
+  const ctx=document.getElementById('trendChart').getContext('2d');
+  trendChartInst=new Chart(ctx,{
+    type:'line',
+    data:{labels,datasets:[
+      {label:'Suhu (°C)',data:avgS,borderColor:'#00e5ff',backgroundColor:'rgba(0,229,255,0.07)',tension:0.4,fill:true,pointBackgroundColor:'#00e5ff',pointRadius:4,borderWidth:2,yAxisID:'y'},
+      {label:'RH (%)',data:avgH,borderColor:'#2dd4bf',backgroundColor:'rgba(45,212,191,0.05)',tension:0.4,fill:true,pointBackgroundColor:'#2dd4bf',pointRadius:4,borderWidth:2,yAxisID:'y1'}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#64748b',font:{size:10,family:'DM Sans'}}}},
+      scales:{
+        x:{ticks:{color:'#334155',font:{size:9}},grid:{color:'rgba(255,255,255,0.035)'}},
+        y:{ticks:{color:'#00e5ff',font:{size:9}},grid:{color:'rgba(255,255,255,0.035)'},min:15,max:32,title:{display:true,text:'°C',color:'#00e5ff',font:{size:9}}},
+        y1:{position:'right',ticks:{color:'#2dd4bf',font:{size:9}},grid:{drawOnChartArea:false},min:25,max:80,title:{display:true,text:'% RH',color:'#2dd4bf',font:{size:9}}}
+      }
+    }
+  });
+}
+
+/* ============================================================
+   GRAFIK PER RUANGAN
+============================================================ */
+function buildRoomCharts() {
+  const grid = document.getElementById('roomChartsGrid');
+  const days=[];for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);days.push(d.toISOString().split('T')[0]);}
+  const labels=days.map(d=>{const dd=new Date(d);return dd.toLocaleDateString('id-ID',{day:'2-digit',month:'short'});});
+
+  // Destroy old chart instances
+  Object.values(roomChartInsts).forEach(c=>{try{c.destroy();}catch(e){}});
+  roomChartInsts={};
+
+  grid.innerHTML = ROOMS.map(room=>`
+    <div class="room-chart-card">
+      <div class="room-chart-title">📍 ${room}</div>
+      <div style="position:relative;height:170px"><canvas id="rc_${room.replace(/\s/g,'_')}"></canvas></div>
+    </div>
+  `).join('');
+
+  ROOMS.forEach(room => {
+    const key = room.replace(/\s/g,'_');
+    const ctx = document.getElementById(`rc_${key}`)?.getContext('2d');
+    if(!ctx) return;
+    const avgS=days.map(day=>{const dd=allData.filter(d=>d.tanggal===day&&d.ruangan===room);return dd.length?+(dd.reduce((a,d)=>a+d.suhu,0)/dd.length).toFixed(1):null;});
+    const avgH=days.map(day=>{const dd=allData.filter(d=>d.tanggal===day&&d.ruangan===room);return dd.length?+(dd.reduce((a,d)=>a+d.humidity,0)/dd.length).toFixed(1):null;});
+
+    const hasData = avgS.some(v=>v!==null)||avgH.some(v=>v!==null);
+    if(!hasData) {
+      ctx.canvas.parentElement.innerHTML='<div class="no-data" style="padding:20px;font-size:11px">Belum ada data 7 hari terakhir</div>';
+      return;
+    }
+
+    roomChartInsts[key] = new Chart(ctx,{
+      type:'line',
+      data:{labels,datasets:[
+        {label:'Suhu °C',data:avgS,borderColor:'#00e5ff',backgroundColor:'rgba(0,229,255,0.06)',tension:0.4,fill:true,pointRadius:3,borderWidth:1.5,yAxisID:'y'},
+        {label:'RH %',data:avgH,borderColor:'#2dd4bf',backgroundColor:'rgba(45,212,191,0.04)',tension:0.4,fill:true,pointRadius:3,borderWidth:1.5,yAxisID:'y1'}
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{labels:{color:'#64748b',font:{size:9,family:'DM Sans'},boxWidth:10}}},
+        scales:{
+          x:{ticks:{color:'#334155',font:{size:8}},grid:{color:'rgba(255,255,255,0.03)'}},
+          y:{ticks:{color:'#00e5ff',font:{size:8}},grid:{color:'rgba(255,255,255,0.03)'},min:15,max:32},
+          y1:{position:'right',ticks:{color:'#2dd4bf',font:{size:8}},grid:{drawOnChartArea:false},min:25,max:80}
+        }
+      }
+    });
+  });
+}
+
+/* ============================================================
+   ANOMALI
+============================================================ */
+function filterAnom(type, el) {
+  anomFilter = type;
+  document.querySelectorAll('#anomSevBar .sev-tag').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderAnomali();
+}
+
+function renderAnomali() {
+  const ruangan = document.getElementById('anomRuangan')?.value||'';
+  const petugas = document.getElementById('anomPetugas')?.value||'';
+  const from    = document.getElementById('anomFrom')?.value||'';
+  const to      = document.getElementById('anomTo')?.value||'';
+
+  let data = allData.filter(isAbnormal);
+  if(anomFilter==='danger') data=data.filter(d=>getOverallSev(d)==='danger');
+  if(anomFilter==='warn')   data=data.filter(d=>getOverallSev(d)==='warn');
+  if(ruangan) data=data.filter(d=>d.ruangan===ruangan);
+  if(petugas) data=data.filter(d=>d.petugas===petugas);
+  if(from)    data=data.filter(d=>d.tanggal>=from);
+  if(to)      data=data.filter(d=>d.tanggal<=to);
+
+  const ab = document.getElementById('anom-badge');
+  const total = allData.filter(isAbnormal).length;
+  if(total>0){ab.textContent=total;ab.style.display='';}else{ab.style.display='none';}
+
+  const tbody = document.getElementById('anomTbody');
+  if(!data.length){
+    tbody.innerHTML='<tr><td colspan="10"><div class="no-data"><div class="no-data-icon">✅</div>Tidak ada data anomali ditemukan</div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map(d=>{
+    const ss=getSuhuStatus(d.suhu),hs=getHumStatus(d.humidity);
+    const sev=getOverallSev(d);
+    const sevBg=sev==='danger'?'rgba(244,63,94,0.06)':sev==='warn'?'rgba(245,158,11,0.05)':'';
+    return`<tr style="background:${sevBg}">
+      <td>${d.tanggal||'–'}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:11px">${d.waktu||'–'}</td>
+      <td style="font-size:11px">${d.ruangan}</td>
+      <td><span class="mono ${ss.color}">${d.suhu}</span></td>
+      <td><span class="mono ${hs.color}">${d.humidity}</span></td>
+      <td><span class="badge ${ss.cls}">${ss.label}</span></td>
+      <td><span class="badge ${hs.cls}">${hs.label}</span></td>
+      <td style="font-size:11px;color:var(--text-dim)">${d.petugas}</td>
+      <td style="font-size:11px;color:var(--text-dim);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.catatan||'–'}</td>
+      <td>
+        <div style="display:flex;gap:5px">
+          <button class="btn btn-ghost btn-xs" onclick="openEdit('${d.id}')">✏️</button>
+          <button class="btn btn-danger btn-xs" onclick="openHapus('${d.id}','${d.tanggal} ${d.ruangan}')">🗑️</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+/* ============================================================
+   STATISTIK
+============================================================ */
+function buildStatistik() {
+  // Ruangan paling abnormal
+  const roomAbn = {};
+  ROOMS.forEach(r=>roomAbn[r]=0);
+  allData.filter(isAbnormal).forEach(d=>{if(roomAbn[d.ruangan]!==undefined)roomAbn[d.ruangan]++;else roomAbn[d.ruangan]=1;});
+  const sorted = Object.entries(roomAbn).sort((a,b)=>b[1]-a[1]);
+  const maxAbn = sorted[0]?.[1]||1;
+  document.getElementById('statsRuangan').innerHTML = sorted.map(([r,c])=>`
+    <div class="petugas-row">
+      <div class="petugas-name" style="font-size:11px">${r}</div>
+      <div class="petugas-bar-wrap"><div class="petugas-bar-fill" style="width:${Math.round(c/maxAbn*100)}%;background:linear-gradient(90deg,var(--red),#f97316)"></div></div>
+      <div class="petugas-count">${c}</div>
+    </div>
+  `).join('') || '<div class="no-data">Belum ada data</div>';
+
+  // Petugas aktivitas
+  const petCount = {};
+  allData.forEach(d=>{petCount[d.petugas]=(petCount[d.petugas]||0)+1;});
+  const petSorted = Object.entries(petCount).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const maxPet = petSorted[0]?.[1]||1;
+  document.getElementById('statsPetugas').innerHTML = petSorted.map(([p,c])=>`
+    <div class="petugas-row">
+      <div class="petugas-name" style="font-size:11px">${p}</div>
+      <div class="petugas-bar-wrap"><div class="petugas-bar-fill" style="width:${Math.round(c/maxPet*100)}%"></div></div>
+      <div class="petugas-count">${c}</div>
+    </div>
+  `).join('') || '<div class="no-data">Belum ada data</div>';
+
+  // Distribusi chart
+  const ok=allData.filter(d=>!isAbnormal(d)).length;
+  const warn=allData.filter(d=>getOverallSev(d)==='warn').length;
+  const danger=allData.filter(d=>getOverallSev(d)==='danger').length;
+  if(distribChartInst)distribChartInst.destroy();
+  const ctx=document.getElementById('distribChart')?.getContext('2d');
+  if(!ctx)return;
+  distribChartInst=new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels:ROOMS,
+      datasets:[
+        {label:'Normal',data:ROOMS.map(r=>allData.filter(d=>d.ruangan===r&&!isAbnormal(d)).length),backgroundColor:'rgba(34,197,94,0.5)',borderColor:'rgba(34,197,94,0.8)',borderWidth:1,borderRadius:4},
+        {label:'Peringatan',data:ROOMS.map(r=>allData.filter(d=>d.ruangan===r&&getOverallSev(d)==='warn').length),backgroundColor:'rgba(245,158,11,0.5)',borderColor:'rgba(245,158,11,0.8)',borderWidth:1,borderRadius:4},
+        {label:'Bahaya',data:ROOMS.map(r=>allData.filter(d=>d.ruangan===r&&getOverallSev(d)==='danger').length),backgroundColor:'rgba(244,63,94,0.5)',borderColor:'rgba(244,63,94,0.8)',borderWidth:1,borderRadius:4},
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#64748b',font:{size:10,family:'DM Sans'}}}},
+      scales:{
+        x:{ticks:{color:'#334155',font:{size:9}},grid:{color:'rgba(255,255,255,0.03)'}},
+        y:{ticks:{color:'#64748b',font:{size:9}},grid:{color:'rgba(255,255,255,0.03)'},beginAtZero:true}
+      }
+    }
+  });
+}
+
+/* ============================================================
+   REKAP
+============================================================ */
+function makeSummary(data) {
+  if(!data.length) return '';
+  const avgS=(data.reduce((a,d)=>a+d.suhu,0)/data.length).toFixed(1);
+  const avgH=(data.reduce((a,d)=>a+d.humidity,0)/data.length).toFixed(1);
+  const ok=data.filter(d=>!isAbnormal(d)).length;
+  const pct=((ok/data.length)*100).toFixed(0);
+  return`<div class="sum-row">
+    <div class="sum-card"><div class="sum-val">${data.length}</div><div class="sum-lbl">Total Data</div></div>
+    <div class="sum-card"><div class="sum-val" style="color:#4ade80">${pct}%</div><div class="sum-lbl">Tingkat Normal</div></div>
+    <div class="sum-card"><div class="sum-val">${avgS}</div><div class="sum-lbl">Avg Suhu °C</div></div>
+    <div class="sum-card"><div class="sum-val">${avgH}</div><div class="sum-lbl">Avg RH %</div></div>
+    <div class="sum-card"><div class="sum-val">${data.length-ok}</div><div class="sum-lbl">Abnormal</div></div>
+  </div>`;
+}
+
+function actionsBtns(d) {
+  return`<td><div style="display:flex;gap:4px">
+    <button class="btn btn-ghost btn-xs" onclick="openEdit('${d.id}')">✏️</button>
+    <button class="btn btn-danger btn-xs" onclick="openHapus('${d.id}','${d.tanggal} ${d.ruangan}')">🗑️</button>
+  </div></td>`;
+}
+
+function loadHarian() {
+  const date=document.getElementById('filterHarian').value;
+  const ruangan=document.getElementById('filterHarianRuangan').value;
+  const petugas=document.getElementById('filterHarianPetugas').value;
+  if(!date){showToast('Pilih tanggal!','error');return;}
+  let filtered=allData.filter(d=>d.tanggal===date);
+  if(ruangan) filtered=filtered.filter(d=>d.ruangan===ruangan);
+  if(petugas) filtered=filtered.filter(d=>d.petugas===petugas);
+  document.getElementById('harianSummary').innerHTML=makeSummary(filtered);
+  const tbody=document.getElementById('rekapHarianBody');
+  if(!filtered.length){tbody.innerHTML='<tr><td colspan="11"><div class="no-data"><div class="no-data-icon">📭</div>Tidak ada data</div></td></tr>';return;}
+  tbody.innerHTML=filtered.map((d,i)=>{
+    const ss=getSuhuStatus(d.suhu),hs=getHumStatus(d.humidity);
+    const sigHtml=d.signature?`<img src="${d.signature}" class="sig-thumb" alt="TTD"/>`:'–';
+    return`<tr><td>${i+1}</td><td style="font-family:'DM Mono',monospace;font-size:11px">${d.waktu||'–'}</td><td style="font-size:11px">${d.ruangan}</td>
+      <td><span class="mono">${d.suhu}</span></td><td><span class="mono">${d.humidity}</span></td>
+      <td><span class="badge ${ss.cls}">${ss.label}</span></td><td><span class="badge ${hs.cls}">${hs.label}</span></td>
+      <td style="font-size:11px">${d.petugas}</td><td style="font-size:11px;color:var(--text-dim)">${d.catatan||'–'}</td>
+      <td>${sigHtml}</td>${actionsBtns(d)}</tr>`;
+  }).join('');
+  window._rekapData={type:'harian',data:filtered,label:date};
+}
+
+function loadBulanan() {
+  const bulan=document.getElementById('filterBulan').value;
+  const tahun=document.getElementById('filterTahunBulan').value;
+  const ruangan=document.getElementById('filterBulananRuangan').value;
+  const prefix=`${tahun}-${bulan}`;
+  let filtered=allData.filter(d=>d.tanggal&&d.tanggal.startsWith(prefix));
+  if(ruangan) filtered=filtered.filter(d=>d.ruangan===ruangan);
+  document.getElementById('bulananSummary').innerHTML=makeSummary(filtered);
+  const tbody=document.getElementById('rekapBulananBody');
+  if(!filtered.length){tbody.innerHTML='<tr><td colspan="9"><div class="no-data"><div class="no-data-icon">📭</div>Tidak ada data</div></td></tr>';return;}
+  tbody.innerHTML=filtered.map((d,i)=>{
+    const ss=getSuhuStatus(d.suhu),hs=getHumStatus(d.humidity);
+    const ov=(ss.cls==='badge-ok'&&hs.cls==='badge-ok')?'badge-ok':'badge-warn';
+    return`<tr><td>${i+1}</td><td>${d.tanggal}</td><td style="font-family:'DM Mono',monospace;font-size:11px">${d.waktu||'–'}</td>
+      <td style="font-size:11px">${d.ruangan}</td>
+      <td><span class="mono">${d.suhu}</span></td><td><span class="mono">${d.humidity}</span></td>
+      <td><span class="badge ${ov}">${ov==='badge-ok'?'NORMAL':'PERIKSA'}</span></td>
+      <td style="font-size:11px">${d.petugas}</td>${actionsBtns(d)}</tr>`;
+  }).join('');
+  window._rekapData={type:'bulanan',data:filtered,label:prefix};
+}
+
+function loadTriwulan() {
+  const tw=parseInt(document.getElementById('filterTriwulan').value);
+  const tahun=document.getElementById('filterTahunTW').value;
+  const ruangan=document.getElementById('filterTWRuangan').value;
+  const mr={1:[1,3],2:[4,6],3:[7,9],4:[10,12]};
+  const [ms,me]=mr[tw];
+  let filtered=allData.filter(d=>{if(!d.tanggal)return false;const m=parseInt(d.tanggal.split('-')[1]),y=d.tanggal.split('-')[0];return y===tahun&&m>=ms&&m<=me;});
+  if(ruangan) filtered=filtered.filter(d=>d.ruangan===ruangan);
+  const names=['','TW I (Jan–Mar)','TW II (Apr–Jun)','TW III (Jul–Sep)','TW IV (Okt–Des)'];
+  document.getElementById('triwulanSummary').innerHTML=makeSummary(filtered);
+  const tbody=document.getElementById('rekapTriwulanBody');
+  if(!filtered.length){tbody.innerHTML='<tr><td colspan="8"><div class="no-data"><div class="no-data-icon">📭</div>Tidak ada data</div></td></tr>';return;}
+  tbody.innerHTML=filtered.map((d,i)=>{
+    const ss=getSuhuStatus(d.suhu),hs=getHumStatus(d.humidity);
+    const ov=(ss.cls==='badge-ok'&&hs.cls==='badge-ok')?'badge-ok':'badge-warn';
+    return`<tr><td>${i+1}</td><td>${d.tanggal}</td><td style="font-size:11px">${d.ruangan}</td>
+      <td><span class="mono">${d.suhu}</span></td><td><span class="mono">${d.humidity}</span></td>
+      <td><span class="badge ${ov}">${ov==='badge-ok'?'NORMAL':'PERIKSA'}</span></td>
+      <td style="font-size:11px">${d.petugas}</td>${actionsBtns(d)}</tr>`;
+  }).join('');
+  window._rekapData={type:'triwulan',data:filtered,label:`${names[tw]} ${tahun}`};
+}
+
+function loadTahunan() {
+  const tahun=document.getElementById('filterTahun').value;
+  const filtered=allData.filter(d=>d.tanggal&&d.tanggal.startsWith(tahun));
+  if(!filtered.length){
+    document.getElementById('rekapTahunanBody').innerHTML='<tr><td colspan="8"><div class="no-data"><div class="no-data-icon">📭</div>Tidak ada data</div></td></tr>';
+    document.getElementById('tahunanSummary').innerHTML=''; return;
+  }
+  const groups={};
+  filtered.forEach(d=>{const month=d.tanggal.slice(0,7),key=`${month}__${d.ruangan}`;if(!groups[key])groups[key]={month,ruangan:d.ruangan,items:[]};groups[key].items.push(d);});
+  const rows=Object.values(groups).sort((a,b)=>a.month.localeCompare(b.month));
+  const MONTHS=['','Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  document.getElementById('rekapTahunanBody').innerHTML=rows.map((g,i)=>{
+    const avgS=(g.items.reduce((a,d)=>a+d.suhu,0)/g.items.length).toFixed(1);
+    const avgH=(g.items.reduce((a,d)=>a+d.humidity,0)/g.items.length).toFixed(1);
+    const normal=g.items.filter(d=>!isAbnormal(d)).length;
+    const abn=g.items.length-normal;
+    const mNum=parseInt(g.month.split('-')[1]);
+    return`<tr><td>${i+1}</td><td>${MONTHS[mNum]}</td><td style="font-size:11px">${g.ruangan}</td>
+      <td><span class="mono">${avgS}</span></td><td><span class="mono">${avgH}</span></td>
+      <td>${g.items.length}</td>
+      <td><span class="badge badge-ok">${normal}</span></td>
+      <td><span class="badge ${abn>0?'badge-warn':'badge-ok'}">${abn}</span></td></tr>`;
+  }).join('');
+  document.getElementById('tahunanSummary').innerHTML=makeSummary(filtered);
+  window._rekapData={type:'tahunan',data:filtered,label:tahun};
+}
+
+/* ============================================================
+   EDIT & HAPUS
+============================================================ */
+function openEdit(id) {
+  editId = id;
+  const d = allData.find(x=>x.id===id);
+  if(!d) return;
+  document.getElementById('eTanggal').value = d.tanggal||'';
+  document.getElementById('eWaktu').value   = d.waktu||'';
+  document.getElementById('eRuangan').value = d.ruangan||'';
+  document.getElementById('ePetugas').value = d.petugas||'';
+  document.getElementById('eSuhu').value    = d.suhu||'';
+  document.getElementById('eHum').value     = d.humidity||'';
+  document.getElementById('eCatatan').value = d.catatan||'';
+  updateEditStatus();
+  document.getElementById('modalEdit').classList.add('open');
+}
+
+async function saveEdit() {
+  if(!editId) return;
+  const suhu = parseFloat(document.getElementById('eSuhu').value);
+  const hum  = parseFloat(document.getElementById('eHum').value);
+  if(isNaN(suhu)||isNaN(hum)){showToast('Suhu dan kelembaban wajib diisi!','error');return;}
+  const updates = {
+    tanggal:  document.getElementById('eTanggal').value,
+    waktu:    document.getElementById('eWaktu').value,
+    ruangan:  document.getElementById('eRuangan').value,
+    petugas:  document.getElementById('ePetugas').value,
+    suhu, humidity: hum,
+    catatan:  document.getElementById('eCatatan').value,
+    suhuStatus: getSuhuStatus(suhu).label,
+    humStatus: getHumStatus(hum).label,
+  };
+  try {
+    await window._update(window._ref(window._db, `monitoring/${editId}`), updates);
+    closeModal('modalEdit');
+    showToast('✅ Data berhasil diperbarui!','success');
+    await loadAllData(); refreshDashboard(); renderAnomali(); buildStatistik();
+  } catch(e){showToast('Gagal: '+e.message,'error');}
+}
+
+function openHapus(id, label) {
+  hapusId = id;
+  document.getElementById('hapusDesc').textContent = `Hapus "${label}"? Data tidak dapat dikembalikan.`;
+  document.getElementById('modalHapus').classList.add('open');
+}
+
+async function doHapus() {
+  if(!hapusId) return;
+  try {
+    await window._remove(window._ref(window._db, `monitoring/${hapusId}`));
+    closeModal('modalHapus');
+    showToast('🗑️ Data berhasil dihapus.','info');
+    await loadAllData(); refreshDashboard(); renderAnomali(); buildStatistik();
+    latestPage=1;
+  } catch(e){showToast('Gagal hapus: '+e.message,'error');}
+}
+
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+/* ============================================================
+   INPUT FORM & SIGNATURE
+============================================================ */
+const sigCtx = document.getElementById('sigCanvas').getContext('2d');
+
+function initSig() {
+  const canvas=document.getElementById('sigCanvas');
+  const label=document.getElementById('sigLabel');
+  function getPos(e) {
+    const r=canvas.getBoundingClientRect(),sx=canvas.width/r.width,sy=canvas.height/r.height;
+    if(e.touches)return{x:(e.touches[0].clientX-r.left)*sx,y:(e.touches[0].clientY-r.top)*sy};
+    return{x:(e.clientX-r.left)*sx,y:(e.clientY-r.top)*sy};
+  }
+  function start(e){e.preventDefault();sigPainting=true;const p=getPos(e);sigCtx.beginPath();sigCtx.moveTo(p.x,p.y);label.style.display='none';hasSig=true;}
+  function draw(e){e.preventDefault();if(!sigPainting)return;const p=getPos(e);sigCtx.lineWidth=2.5;sigCtx.lineCap='round';sigCtx.strokeStyle='#00e5ff';sigCtx.lineTo(p.x,p.y);sigCtx.stroke();sigCtx.beginPath();sigCtx.moveTo(p.x,p.y);}
+  function stop(){sigPainting=false;sigCtx.beginPath();}
+  canvas.addEventListener('mousedown',start);canvas.addEventListener('mousemove',draw);canvas.addEventListener('mouseup',stop);canvas.addEventListener('mouseleave',stop);
+  canvas.addEventListener('touchstart',start,{passive:false});canvas.addEventListener('touchmove',draw,{passive:false});canvas.addEventListener('touchend',stop);
+}
+function clearSig(){sigCtx.clearRect(0,0,document.getElementById('sigCanvas').width,128);document.getElementById('sigLabel').style.display='flex';hasSig=false;}
 
 async function submitData() {
   const tanggal=document.getElementById('inpTanggal').value;
@@ -882,187 +1709,113 @@ async function submitData() {
   const suhu=parseFloat(document.getElementById('inpSuhu').value);
   const hum=parseFloat(document.getElementById('inpHumidity').value);
   const catatan=document.getElementById('inpCatatan').value;
-  if(!tanggal||!ruangan||!petugas||isNaN(suhu)||isNaN(hum)){showToast('Lengkapi semua field yang wajib diisi!','error');return;}
+  if(!tanggal||!ruangan||!petugas||isNaN(suhu)||isNaN(hum)){showToast('Lengkapi semua field wajib!','error');return;}
   let sigData='';
-  if(hasSig){sigData=document.getElementById('sigCanvas').toDataURL('image/png');}
-  const payload={tanggal,waktu,ruangan,petugas,suhu,humidity:hum,catatan,signature:sigData,timestamp:new Date(`${tanggal}T${waktu}`).toISOString(),suhuStatus:getSuhuStatus(suhu).label,humStatus:getHumStatus(hum).label,createdAt:new Date().toISOString()};
-  try {
-    const newRef=window._firebasePush(window._firebaseRef(window._firebaseDB,'monitoring'));
-    await window._firebaseSet(newRef,payload);
-    showToast('✅ Data berhasil disimpan!','success');
-    resetForm(); await loadAllData(); refreshDashboard();
-  } catch(e){console.error(e);showToast('Gagal menyimpan: '+e.message,'error');}
-}
+  if(hasSig)sigData=document.getElementById('sigCanvas').toDataURL('image/png');
+  const payload={tanggal,waktu,ruangan,petugas,suhu,humidity:hum,catatan,signature:sigData,
+    timestamp:new Date(`${tanggal}T${waktu}`).toISOString(),
+    suhuStatus:getSuhuStatus(suhu).label,humStatus:getHumStatus(hum).label,
+    createdAt:new Date().toISOString()};
 
-function refreshDashboard() {
-  const today=new Date().toISOString().split('T')[0];
-  const td=allData.filter(d=>d.tanggal===today);
-  document.getElementById('st-total').textContent=allData.length;
-  if(td.length>0){
-    document.getElementById('st-suhu').textContent=(td.reduce((a,d)=>a+d.suhu,0)/td.length).toFixed(1);
-    document.getElementById('st-hum').textContent=(td.reduce((a,d)=>a+d.humidity,0)/td.length).toFixed(1);
-    const ok=td.filter(d=>getSuhuStatus(d.suhu).cls==='badge-ok'&&getHumStatus(d.humidity).cls==='badge-ok').length;
-    document.getElementById('st-ok').textContent=ok;
-    document.getElementById('st-warn').textContent=td.length-ok;
-  } else {['st-suhu','st-hum','st-ok','st-warn'].forEach(id=>document.getElementById(id).textContent='–');}
-
-  const ge=document.getElementById('gaugesGrid');
-  if(td.length===0){
-    ge.innerHTML='<div class="no-data" style="grid-column:1/-1"><div class="no-data-icon">📭</div>Belum ada data hari ini</div>';
-  } else {
-    const rl={};td.forEach(d=>{if(!rl[d.ruangan])rl[d.ruangan]=d;});
-    ge.innerHTML=Object.entries(rl).map(([room,d])=>{
-      const ss=getSuhuStatus(d.suhu),hs=getHumStatus(d.humidity);
-      const isOk=ss.cls==='badge-ok'&&hs.cls==='badge-ok';
-      const isDanger=ss.cls==='badge-danger'||hs.cls==='badge-danger';
-      const col=isOk?'#4ade80':isDanger?'#fb7185':'#fbbf24';
-      const bc=isOk?'rgba(34,197,94,.25)':isDanger?'rgba(244,63,94,.25)':'rgba(245,158,11,.25)';
-      return `<div class="gauge-card" style="border-color:${bc}">
-        <div class="g-room">${room}</div>
-        <div class="g-temp" style="color:${col}">${d.suhu}<span class="g-unit">°C</span></div>
-        <div class="g-hum">${d.humidity}% RH</div>
-        <div class="g-badge"><span class="badge ${ss.cls}">${ss.label}</span></div>
-      </div>`;
-    }).join('');
+  // Alert if abnormal
+  if(isAbnormal({suhu,humidity:hum})) {
+    showToast('⚠️ PERHATIAN: Nilai di luar batas normal!','warn');
   }
-  buildTrendChart();
-  const tbody=document.getElementById('latestTbody');
-  const recent=allData.slice(0,20);
-  if(!recent.length){tbody.innerHTML='<tr><td colspan="7"><div class="no-data">Belum ada data</div></td></tr>';}
-  else{tbody.innerHTML=recent.map(d=>{const ss=getSuhuStatus(d.suhu),hs=getHumStatus(d.humidity);return`<tr><td>${d.tanggal}</td><td>${d.ruangan}</td><td><span class="mono">${d.suhu}</span></td><td><span class="mono">${d.humidity}</span></td><td style="font-size:12px;color:var(--text-dim)">${d.petugas}</td><td><span class="badge ${ss.cls}">${ss.label}</span></td><td><span class="badge ${hs.cls}">${hs.label}</span></td></tr>`;}).join('');}
-}
 
-function buildTrendChart() {
-  const days=[];for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);days.push(d.toISOString().split('T')[0]);}
-  const avgS=days.map(day=>{const dd=allData.filter(d=>d.tanggal===day);return dd.length?+(dd.reduce((a,d)=>a+d.suhu,0)/dd.length).toFixed(1):null;});
-  const avgH=days.map(day=>{const dd=allData.filter(d=>d.tanggal===day);return dd.length?+(dd.reduce((a,d)=>a+d.humidity,0)/dd.length).toFixed(1):null;});
-  const labels=days.map(d=>{const dd=new Date(d);return dd.toLocaleDateString('id-ID',{day:'2-digit',month:'short'});});
-  if(trendChartInstance)trendChartInstance.destroy();
-  const ctx=document.getElementById('trendChart').getContext('2d');
-  trendChartInstance=new Chart(ctx,{
-    type:'line',
-    data:{labels,datasets:[
-      {label:'Suhu (°C)',data:avgS,borderColor:'#00e5ff',backgroundColor:'rgba(0,229,255,0.08)',tension:0.4,fill:true,pointBackgroundColor:'#00e5ff',pointRadius:4,borderWidth:2,yAxisID:'y'},
-      {label:'Kelembaban (%)',data:avgH,borderColor:'#2dd4bf',backgroundColor:'rgba(45,212,191,0.06)',tension:0.4,fill:true,pointBackgroundColor:'#2dd4bf',pointRadius:4,borderWidth:2,yAxisID:'y1'}
-    ]},
-    options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{labels:{color:'#64748b',font:{size:11,family:'Outfit'}}}},
-      scales:{
-        x:{ticks:{color:'#334155',font:{size:10}},grid:{color:'rgba(255,255,255,0.04)'}},
-        y:{ticks:{color:'#00e5ff',font:{size:10}},grid:{color:'rgba(255,255,255,0.04)'},min:15,max:30,title:{display:true,text:'°C',color:'#00e5ff',font:{size:10}}},
-        y1:{position:'right',ticks:{color:'#2dd4bf',font:{size:10}},grid:{drawOnChartArea:false},min:30,max:80,title:{display:true,text:'% RH',color:'#2dd4bf',font:{size:10}}}
-      }
-    }
-  });
-}
-
-function loadHarian() {
-  const date=document.getElementById('filterHarian').value;
-  if(!date){showToast('Pilih tanggal!','error');return;}
-  const filtered=allData.filter(d=>d.tanggal===date);
-  const tbody=document.getElementById('rekapHarianBody');
-  if(!filtered.length){tbody.innerHTML='<tr><td colspan="10"><div class="no-data"><div class="no-data-icon">📭</div>Tidak ada data untuk tanggal ini</div></td></tr>';return;}
-  tbody.innerHTML=filtered.map((d,i)=>{
-    const ss=getSuhuStatus(d.suhu),hs=getHumStatus(d.humidity);
-    const sigHtml=d.signature?`<img src="${d.signature}" class="sig-thumb" alt="TTD"/>`:'–';
-    return`<tr><td>${i+1}</td><td>${d.waktu||'–'}</td><td>${d.ruangan}</td><td><span class="mono">${d.suhu}</span></td><td><span class="mono">${d.humidity}</span></td><td><span class="badge ${ss.cls}">${ss.label}</span></td><td><span class="badge ${hs.cls}">${hs.label}</span></td><td style="font-size:12px">${d.petugas}</td><td style="font-size:12px">${d.catatan||'–'}</td><td>${sigHtml}</td></tr>`;
-  }).join('');
-  window._rekapData={type:'harian',data:filtered,label:date};
-}
-
-function loadBulanan() {
-  const bulan=document.getElementById('filterBulan').value;
-  const tahun=document.getElementById('filterTahunBulan').value;
-  const prefix=`${tahun}-${bulan}`;
-  const filtered=allData.filter(d=>d.tanggal&&d.tanggal.startsWith(prefix));
-  const tbody=document.getElementById('rekapBulananBody');
-  if(!filtered.length){tbody.innerHTML='<tr><td colspan="8"><div class="no-data"><div class="no-data-icon">📭</div>Tidak ada data untuk bulan ini</div></td></tr>';return;}
-  tbody.innerHTML=filtered.map((d,i)=>{
-    const ss=getSuhuStatus(d.suhu),hs=getHumStatus(d.humidity);
-    const ov=(ss.cls==='badge-ok'&&hs.cls==='badge-ok')?'badge-ok':'badge-warn';
-    return`<tr><td>${i+1}</td><td>${d.tanggal}</td><td>${d.waktu||'–'}</td><td>${d.ruangan}</td><td><span class="mono">${d.suhu}</span></td><td><span class="mono">${d.humidity}</span></td><td><span class="badge ${ov}">${ov==='badge-ok'?'NORMAL':'PERIKSA'}</span></td><td style="font-size:12px">${d.petugas}</td></tr>`;
-  }).join('');
-  window._rekapData={type:'bulanan',data:filtered,label:prefix};
-}
-
-function loadTriwulan() {
-  const tw=parseInt(document.getElementById('filterTriwulan').value);
-  const tahun=document.getElementById('filterTahunTW').value;
-  const mr={1:[1,3],2:[4,6],3:[7,9],4:[10,12]};
-  const [ms,me]=mr[tw];
-  const filtered=allData.filter(d=>{if(!d.tanggal)return false;const m=parseInt(d.tanggal.split('-')[1]),y=d.tanggal.split('-')[0];return y===tahun&&m>=ms&&m<=me;});
-  const tbody=document.getElementById('rekapTriwulanBody');
-  if(!filtered.length){tbody.innerHTML='<tr><td colspan="7"><div class="no-data"><div class="no-data-icon">📭</div>Tidak ada data untuk triwulan ini</div></td></tr>';return;}
-  tbody.innerHTML=filtered.map((d,i)=>{
-    const ss=getSuhuStatus(d.suhu),hs=getHumStatus(d.humidity);
-    const ov=(ss.cls==='badge-ok'&&hs.cls==='badge-ok')?'badge-ok':'badge-warn';
-    return`<tr><td>${i+1}</td><td>${d.tanggal}</td><td>${d.ruangan}</td><td><span class="mono">${d.suhu}</span></td><td><span class="mono">${d.humidity}</span></td><td><span class="badge ${ov}">${ov==='badge-ok'?'NORMAL':'PERIKSA'}</span></td><td style="font-size:12px">${d.petugas}</td></tr>`;
-  }).join('');
-  const names=['','TW I (Jan–Mar)','TW II (Apr–Jun)','TW III (Jul–Sep)','TW IV (Okt–Des)'];
-  window._rekapData={type:'triwulan',data:filtered,label:`${names[tw]} ${tahun}`};
-}
-
-function loadTahunan() {
-  const tahun=document.getElementById('filterTahun').value;
-  const filtered=allData.filter(d=>d.tanggal&&d.tanggal.startsWith(tahun));
-  const tbody=document.getElementById('rekapTahunanBody');
-  if(!filtered.length){tbody.innerHTML='<tr><td colspan="8"><div class="no-data"><div class="no-data-icon">📭</div>Tidak ada data untuk tahun ini</div></td></tr>';document.getElementById('tahunanSummary').innerHTML='';return;}
-  const groups={};
-  filtered.forEach(d=>{const month=d.tanggal.slice(0,7),key=`${month}__${d.ruangan}`;if(!groups[key])groups[key]={month,ruangan:d.ruangan,items:[]};groups[key].items.push(d);});
-  const rows=Object.values(groups).sort((a,b)=>a.month.localeCompare(b.month));
-  const MONTHS=['','Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-  tbody.innerHTML=rows.map((g,i)=>{
-    const avgS=(g.items.reduce((a,d)=>a+d.suhu,0)/g.items.length).toFixed(1);
-    const avgH=(g.items.reduce((a,d)=>a+d.humidity,0)/g.items.length).toFixed(1);
-    const normal=g.items.filter(d=>getSuhuStatus(d.suhu).cls==='badge-ok'&&getHumStatus(d.humidity).cls==='badge-ok').length;
-    const abn=g.items.length-normal;
-    const mNum=parseInt(g.month.split('-')[1]);
-    return`<tr><td>${i+1}</td><td>${MONTHS[mNum]}</td><td>${g.ruangan}</td><td><span class="mono">${avgS}</span></td><td><span class="mono">${avgH}</span></td><td>${g.items.length}</td><td><span class="badge badge-ok">${normal}</span></td><td><span class="badge ${abn>0?'badge-warn':'badge-ok'}">${abn}</span></td></tr>`;
-  }).join('');
-  const totalOk=filtered.filter(d=>getSuhuStatus(d.suhu).cls==='badge-ok'&&getHumStatus(d.humidity).cls==='badge-ok').length;
-  const pct=((totalOk/filtered.length)*100).toFixed(0);
-  document.getElementById('tahunanSummary').innerHTML=`
-    <div class="sum-row">
-      <div class="sum-card"><div class="sum-val">${filtered.length}</div><div class="sum-lbl">Total Data ${tahun}</div></div>
-      <div class="sum-card"><div class="sum-val" style="color:#4ade80">${pct}%</div><div class="sum-lbl">Tingkat Normal</div></div>
-      <div class="sum-card"><div class="sum-val">${(filtered.reduce((a,d)=>a+d.suhu,0)/filtered.length).toFixed(1)}</div><div class="sum-lbl">Rata2 Suhu °C</div></div>
-      <div class="sum-card"><div class="sum-val">${(filtered.reduce((a,d)=>a+d.humidity,0)/filtered.length).toFixed(1)}</div><div class="sum-lbl">Rata2 RH %</div></div>
-    </div>`;
-  window._rekapData={type:'tahunan',data:filtered,label:tahun};
-}
-
-function exportExcel(type) {
-  if(!window._rekapData||window._rekapData.type!==type){showToast('Tampilkan data terlebih dahulu!','error');return;}
-  const{data,label}=window._rekapData;
-  const wsData=[['MONITORING SUHU RUANGAN RADIOLOGI'],[`Laporan ${type.toUpperCase()} — ${label}`],['Diekspor:',new Date().toLocaleString('id-ID')],[],['No','Tanggal','Waktu','Ruangan','Suhu (°C)','Kelembaban (%)','Status Suhu','Status RH','Petugas','Catatan']];
-  data.forEach((d,i)=>{const ss=getSuhuStatus(d.suhu),hs=getHumStatus(d.humidity);wsData.push([i+1,d.tanggal,d.waktu||'–',d.ruangan,d.suhu,d.humidity,ss.label,hs.label,d.petugas,d.catatan||'–']);});
-  wsData.push([]);wsData.push(['RINGKASAN']);
-  const avgS=(data.reduce((a,d)=>a+d.suhu,0)/data.length).toFixed(1);
-  const avgH=(data.reduce((a,d)=>a+d.humidity,0)/data.length).toFixed(1);
-  const ok=data.filter(d=>getSuhuStatus(d.suhu).cls==='badge-ok'&&getHumStatus(d.humidity).cls==='badge-ok').length;
-  wsData.push(['Total Data:',data.length],['Rata-rata Suhu:',`${avgS} °C`],['Rata-rata Kelembaban:',`${avgH}%`],['Jumlah Normal:',ok],['Jumlah Tidak Normal:',data.length-ok]);
-  const wb=XLSX.utils.book_new();const ws=XLSX.utils.aoa_to_sheet(wsData);
-  ws['!cols']=[5,12,8,20,10,14,18,14,30,20].map(w=>({wch:w}));
-  XLSX.utils.book_append_sheet(wb,ws,`Rekap ${type}`);
-  XLSX.writeFile(wb,`MonitoringSuhu_${type}_${label.replace(/[\s\/]/g,'_')}.xlsx`);
-  showToast('✅ File Excel berhasil diunduh!','success');
+  try {
+    const newRef=window._push(window._ref(window._db,'monitoring'));
+    await window._set(newRef,payload);
+    showToast('✅ Data berhasil disimpan!','success');
+    resetForm(); await loadAllData(); refreshDashboard(); renderAnomali();
+    setTimeout(()=>switchTab('dashboard',document.querySelector('.tab-btn')),500);
+  } catch(e){showToast('Gagal menyimpan: '+e.message,'error');}
 }
 
 function resetForm() {
-  document.getElementById('inpRuangan').value='';document.getElementById('inpPetugas').value='';
-  document.getElementById('inpSuhu').value='';document.getElementById('inpHumidity').value='';
+  document.getElementById('inpRuangan').value='';
+  document.getElementById('inpPetugas').value='';
+  document.getElementById('inpSuhu').value='';
+  document.getElementById('inpHumidity').value='';
   document.getElementById('inpCatatan').value='';
-  document.getElementById('suhuStatus').textContent='';document.getElementById('humStatus').textContent='';
+  document.getElementById('suhuStatus').textContent='';
+  document.getElementById('humStatus').textContent='';
   clearSig();
   const now=new Date();
   document.getElementById('inpTanggal').value=now.toISOString().split('T')[0];
   document.getElementById('inpWaktu').value=now.toTimeString().slice(0,5);
 }
 
-function showToast(msg,type='success') {
-  const t=document.getElementById('toast');t.textContent=msg;t.className=type;t.style.display='flex';
-  setTimeout(()=>{t.style.display='none';},3500);
+/* ============================================================
+   EXPORT EXCEL
+============================================================ */
+function exportExcel(type) {
+  if(!window._rekapData||window._rekapData.type!==type){showToast('Tampilkan data terlebih dahulu!','error');return;}
+  const{data,label}=window._rekapData;
+  const wsData=[
+    ['MONITORING SUHU & KELEMBABAN — INSTALASI RADIOLOGI RS MITRA PLUMBON'],
+    [`Laporan ${type.toUpperCase()} — ${label}`],
+    ['Diekspor:',new Date().toLocaleString('id-ID')],
+    [],
+    ['No','Tanggal','Waktu','Ruangan','Suhu (°C)','Kelembaban (%)','Status Suhu','Status RH','Petugas','Catatan']
+  ];
+  data.forEach((d,i)=>{
+    const ss=getSuhuStatus(d.suhu),hs=getHumStatus(d.humidity);
+    wsData.push([i+1,d.tanggal,d.waktu||'–',d.ruangan,d.suhu,d.humidity,ss.label,hs.label,d.petugas,d.catatan||'–']);
+  });
+  wsData.push([]);wsData.push(['RINGKASAN']);
+  const avgS=(data.reduce((a,d)=>a+d.suhu,0)/data.length).toFixed(1);
+  const avgH=(data.reduce((a,d)=>a+d.humidity,0)/data.length).toFixed(1);
+  const ok=data.filter(d=>!isAbnormal(d)).length;
+  wsData.push(['Total Data:',data.length],['Rata-rata Suhu:',`${avgS} °C`],['Rata-rata Kelembaban:',`${avgH}%`],['Jumlah Normal:',ok],['Jumlah Tidak Normal:',data.length-ok]);
+  const wb=XLSX.utils.book_new();const ws=XLSX.utils.aoa_to_sheet(wsData);
+  ws['!cols']=[5,12,8,22,10,14,20,14,30,22].map(w=>({wch:w}));
+  XLSX.utils.book_append_sheet(wb,ws,`Rekap ${type}`);
+  XLSX.writeFile(wb,`MonitoringSuhu_v2_${type}_${label.replace(/[\s\/]/g,'_')}.xlsx`);
+  showToast('📥 File Excel berhasil diunduh!','success');
 }
+
+/* ============================================================
+   CETAK (PRINT)
+============================================================ */
+function printRekap() {
+  window.print();
+}
+
+/* ============================================================
+   TOAST
+============================================================ */
+function showToast(msg, type='success') {
+  const icons={success:'✅',error:'❌',info:'ℹ️',warn:'⚠️'};
+  const div=document.createElement('div');
+  div.className=`toast-item toast-${type}`;
+  div.innerHTML=`<span>${icons[type]||''}</span><span>${msg}</span>`;
+  document.getElementById('toast-container').appendChild(div);
+  setTimeout(()=>{div.style.opacity='0';div.style.transition='opacity .3s';setTimeout(()=>div.remove(),300);},3500);
+}
+
+/* ============================================================
+   PRINT CSS
+============================================================ */
+const printStyle = document.createElement('style');
+printStyle.textContent = `
+  @media print {
+    body { background: white !important; color: black !important; }
+    header, nav, .pg-hdr .btn-group, .rekap-controls, .load-more-wrap, #toast-container, .modal-overlay { display: none !important; }
+    .tab-content { display: block !important; }
+    .tab-content:not(.active) { display: none !important; }
+    .card { border: 1px solid #ddd !important; background: white !important; }
+    td, th { color: black !important; border-color: #ddd !important; }
+    .badge-ok { background: #d1fae5 !important; color: #065f46 !important; }
+    .badge-warn { background: #fef3c7 !important; color: #92400e !important; }
+    .badge-danger { background: #fee2e2 !important; color: #991b1b !important; }
+    .mono { color: #1e40af !important; }
+    .sum-card { background: #f8fafc !important; border: 1px solid #ddd !important; }
+    .sum-val { color: #1e293b !important; }
+    .no-data { color: #64748b !important; }
+    .btn { display: none !important; }
+  }
+`;
+document.head.appendChild(printStyle);
 </script>
 </body>
 </html>
